@@ -511,7 +511,7 @@ def main():
     hps_model.x_dim=28
     hps_model.num_classes=10
     hps_model.c_dim=1
-    hps_model.batch_size=100  # Reduced batch size for quicker testing
+    hps_model.batch_size=1000  # Match original notebook batch size
     hps_model.grad_clip=100.0
     hps_model.hyper_mode=False
     hps_model.model_path='/tmp/'
@@ -535,8 +535,8 @@ def main():
         model = MNIST(hps_model)
         sess.run(tf1.global_variables_initializer())
         
-        # Train for 2 epochs as requested
-        train_model(sess, model, model, mnist, 2, save_model=False)
+        # Train for 50 epochs as in the original notebook
+        train_model(sess, model, model, mnist, 50, save_model=False)
         
         # Get convolutional filter visualization
         conv_filter = sess.run(model.conv2_weights)
@@ -559,8 +559,8 @@ def main():
         model = MNIST(hps_model)
         sess.run(tf1.global_variables_initializer())
         
-        # Train for 2 epochs as requested
-        train_model(sess, model, model, mnist, 2, save_model=False)
+        # Train for 50 epochs as in the original notebook
+        train_model(sess, model, model, mnist, 50, save_model=False)
         
         # Get hypernetwork-generated convolutional filter visualization
         conv_filter = sess.run(model.conv2_weights)

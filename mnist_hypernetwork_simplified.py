@@ -466,7 +466,7 @@ def main():
     hps_model.x_dim = 28
     hps_model.num_classes = 10
     hps_model.c_dim = 1
-    hps_model.batch_size = 100
+    hps_model.batch_size = 1000  # Match the original notebook batch size
     hps_model.grad_clip = 100.0
     hps_model.hyper_mode = False
     hps_model.model_path = '/tmp/'
@@ -483,8 +483,8 @@ def main():
         sess.run(tf.global_variables_initializer())
         
         # Train for specified number of epochs
-        num_epochs = 2  # Set to desired number
-        train_model(sess, model, model, mnist, num_epochs, save_model=False)
+        num_epochs = 50  # Match the original notebook epoch count
+        train_model(sess, model, model, mnist, num_epochs, save_model=False)  # Train for 50 epochs like original notebook
         
         # Display filter statistics
         conv_filter = sess.run(model.conv2_weights)
@@ -501,7 +501,7 @@ def main():
         model = MNIST(hps_model)
         sess.run(tf.global_variables_initializer())
         
-        # Train for specified number of epochs
+        # Train for specified number of epochs (50 epochs like original notebook)
         train_model(sess, model, model, mnist, num_epochs, save_model=False)
         
         # Display filter statistics
