@@ -11,9 +11,23 @@ mnist_data/
 *.pth
 *.ckpt
 *.pb
+*.bin    # BERT/HuggingFace模型权重
+*.onnx   # ONNX模型格式
+*.tar    # 压缩的模型文件
+*.tar.gz # 压缩的模型文件
+*.zip    # 压缩的模型文件
+*.joblib # scikit-learn模型
+*.tflite # TensorFlow Lite模型
+*.mlmodel # Core ML模型
+*.safetensors # Safe Tensors格式
+*.weights # Darknet权重
+*.engine # TensorRT引擎文件
 saved_models/
 checkpoints/
 models/
+pretrained/
+weights/
+runs/
 /tmp/
 
 # TensorFlow specific
@@ -22,6 +36,9 @@ checkpoint
 *.meta
 events.out.tfevents.*
 graph.pbtxt
+saved_model/
+saved_model.pb
+variables/
 
 # Generated images
 *.png
