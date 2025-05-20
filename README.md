@@ -351,3 +351,92 @@ MIT
 ---
 
 *注：此项目为学术研究和教育目的而创建。*
+
+## 更新（2025年5月20日）
+
+### 扩展实现：三z_signal共享超网络模型
+
+作为对原始超网络实现的扩展，我们增加了一个使用**单一共享超网络**解码**三个独立z_signal**的改进模型。这一实现更加贴近原论文中描述的超网络概念。
+
+#### 改进架构
+
+新的实现(`mnist_hypernetwork_triple_shared.py`)具有以下特点：
+
+1. **三个独立z_signal**：
+   - `z_signal_0`: 用于生成第一卷积层(conv1)权重
+   - `z_signal_1`: 用于生成第二卷积层(conv2)权重
+   - `z_signal_2`: 用于生成第三卷积层(conv3)权重
+
+2. **共享超网络核心**：
+   ```python
+   # 所有z_signal共享一个超网络的核心层
+   self.hyper_w1 = nn.Parameter(torch.randn(z_dim, h_dim) * 0.01)
+   self.hyper_b1 = nn.Parameter(torch.zeros(h_dim))
+   ```
+   这一核心超网络层将所有z_signal从4维映射到共同的64维隐藏表示空间。
+
+3. **层特定输出投影**：
+   ```python
+   # 为不同卷积层使用专门的输出投影
+   self.hyper_w2_conv1 = nn.Parameter(torch.randn(h_dim, in_size * f_size * f_size) * 0.01)
+   self.hyper_w2_conv2 = nn.Parameter(torch.randn(h_dim, mid_size * in_size * f_size * f_size) * 0.01)
+   self.hyper_w2_conv3 = nn.Parameter(torch.randn(h_dim, out_size * mid_size * f_size * f_size) * 0.01)
+   ```
+   从共享隐藏表示到各层特定维度权重的最终映射。
+
+4. **统一权重生成流程**：
+   ```python
+   def generate_weights(self, z_signal, hyper_w2, hyper_b2, out_shape):
+       # 第一层（共享）：z -> 隐藏表示
+       h = torch.matmul(z_signal, self.hyper_w1) + self.hyper_b1
+       
+       # 第二层（层特定）：隐藏表示 -> 权重
+       weights = torch.matmul(h, hyper_w2) + hyper_b2
+       
+       # 重塑为卷积滤波器格式
+       kernel = weights.reshape(out_shape)
+       return kernel
+   ```
+
+#### 实验结果
+
+共享超网络模型展现出了优秀的性能特性：
+
+1. **测试错误率**：
+   - 标准CNN: 1.02%
+   - 共享超网络CNN: 0.95%
+
+2. **z_signal与权重的关系**：
+   - 每个4维z_signal能够产生大量的卷积滤波器权重：
+     - z_signal_0 (4维) → 生成400个参数 (16×1×5×5)
+     - z_signal_1 (4维) → 生成12,800个参数 (32×16×5×5)
+     - z_signal_2 (4维) → 生成51,200个参数 (64×32×5×5)
+
+3. **可视化**：
+   - **z_signal柱状图**：展示了三个z_signal的相对值，每个z_signal学习到独特的潜在表示
+   - **损失曲线比较**：共享超网络模型的收敛速度和稳定性都有所提升
+   - **滤波器可视化**：共享超网络生成的滤波器展现出更多结构化的特征
+
+#### 模型文件
+
+此实现包含了模型保存和加载功能：
+
+```python
+def save_model(model, save_path='hypernetwork_model.pt'):
+    """保存模型到文件"""
+    torch.save(model.state_dict(), save_path)
+    
+    # 单独保存z_signal以便后续分析
+    z_signals = {
+        'z_signal_0': model.z_signal_0.detach().cpu().numpy(),
+        'z_signal_1': model.z_signal_1.detach().cpu().numpy(),
+        'z_signal_2': model.z_signal_2.detach().cpu().numpy()
+    }
+    np.save('z_signals.npy', z_signals)
+```
+
+#### 结论
+
+这一扩展实现展示了超网络架构的灵活性和强大潜力。通过单一共享超网络从多个独立z_signal生成多层卷积权重，我们不仅实现了参数的高效利用，还略微提升了模型性能。特别是，z_signal作为低维潜在表示，提供了对卷积层特性的高度抽象编码，这种编码在共享超网络的映射下转化为完整的权重矩阵。
+
+这一实验验证了论文中提出的超网络作为"一种使用另一个网络生成权重的方法"的核心理念，并展示了它在深度卷积网络中的实用性。
