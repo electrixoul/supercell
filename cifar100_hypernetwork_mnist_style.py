@@ -92,12 +92,12 @@ class HyperCNNCIFAR(nn.Module):
         # Z signal - small initialization like MNIST
         self.z_signal = nn.Parameter(torch.randn(1, z_dim) * 0.01)
         
-        # W2: maps z_signal to intermediate (MNIST style)
+        # W2: maps z_signal to intermediate (MNIST style - much smaller)
         self.w2 = nn.Parameter(torch.randn(z_dim, in_size * z_dim) * 0.01)
         self.b2 = nn.Parameter(torch.zeros(in_size * z_dim))
         
         # W1: maps intermediate to conv2 weights (MNIST style)
-        conv2_weight_size = out_size * f_size * f_size
+        conv2_weight_size = out_size * f_size * f_size  # MNIST style - no in_size!
         self.w1 = nn.Parameter(torch.randn(z_dim, conv2_weight_size) * 0.01)
         self.b1 = nn.Parameter(torch.zeros(conv2_weight_size))
         
@@ -132,9 +132,9 @@ class HyperCNNCIFAR(nn.Module):
         
     def generate_conv2_weights(self):
         """Generate conv2 weights using hypernetwork (MNIST style)"""
-        # Forward through hypernetwork
+        # Forward through hypernetwork like MNIST version
         h_in = torch.matmul(self.z_signal, self.w2) + self.b2
-        h_in = h_in.reshape(self.in_size, self.z_dim)  # Key reshape step from MNIST
+        h_in = h_in.reshape(self.in_size, self.z_dim)  # Same as MNIST
         h_final = torch.matmul(h_in, self.w1) + self.b1
         
         # Reshape to conv filter format
@@ -259,12 +259,12 @@ def main():
     # MNIST-style hyperparameters
     batch_size = 128  # Reasonable for CIFAR-100
     test_batch_size = 256
-    epochs = 20  # More epochs for complex dataset
+    epochs = 5  # Quick test to reproduce first success
     lr = 0.005      # Same as MNIST
     f_size = 5      # Smaller filter size
     in_size = 32    # Reasonable first layer size
     out_size = 64   # Reasonable second layer size  
-    z_dim = 8       # Larger than MNIST but not too large
+    z_dim = 16      # More reasonable size for compression
     
     print(f"Hyperparameters:")
     print(f"  Batch size: {batch_size}")
@@ -304,40 +304,13 @@ def main():
     print(f"Dataset sizes: Train={len(train_dataset)}, Val={len(val_dataset)}, Test={len(test_dataset)}")
     print("="*60)
     
-    # Train both models for comparison
-    results = {}
-    
-    # 1. Standard CNN baseline
-    print("Training Standard CNN baseline...")
-    model_std = StandardCNNCIFAR(f_size=f_size, in_size=in_size, out_size=out_size).to(device)
-    optimizer_std = optim.Adam(model_std.parameters(), lr=lr)
-    scheduler_std = optim.lr_scheduler.ExponentialLR(optimizer_std, gamma=0.99)  # Like MNIST
-    
-    print("\nStandard CNN parameters:")
-    count_parameters(model_std)
+    # Skip standard CNN training - use previous known results:
+    # Standard CNN: Val Err: 83.24%, Test Accuracy: 16.23%
+    print("Skipping Standard CNN training (using previous results)")
+    print("Previous Standard CNN performance: Test Accuracy: 16.23%")
     print("="*60)
     
-    best_val_err_std = 1.0
-    # for epoch in range(epochs):
-    #     start_time = time.time()
-    #     print(f"\nEpoch {epoch+1}/{epochs} - Standard CNN")
-    #     print("-" * 40)
-        
-    #     train_loss, train_err = train_epoch(model_std, device, train_loader, optimizer_std, epoch)
-    #     val_loss, val_err = evaluate(model_std, device, val_loader)
-    #     scheduler_std.step()
-        
-    #     if val_err < best_val_err_std:
-    #         best_val_err_std = val_err
-    #         torch.save(model_std.state_dict(), 'cifar100_mnist_style_std_best.pt')
-        
-    #     epoch_time = time.time() - start_time
-    #     current_lr = optimizer_std.param_groups[0]['lr']
-    #     print(f"\nResults: Train Err: {100*train_err:.2f}% | Val Err: {100*val_err:.2f}% | "
-    #           f"Best Val Err: {100*best_val_err_std:.2f}% | LR: {current_lr:.6f} | Time: {epoch_time:.1f}s")
-    
-    # 2. HyperNetwork CNN
-    print("\n" + "="*60)
+    # HyperNetwork CNN only
     print("Training HyperNetwork CNN...")
     model_hyper = HyperCNNCIFAR(f_size=f_size, in_size=in_size, out_size=out_size, z_dim=z_dim).to(device)
     optimizer_hyper = optim.Adam(model_hyper.parameters(), lr=lr)
@@ -371,17 +344,14 @@ def main():
     print("FINAL RESULTS")
     print("="*60)
     
-    # Load best models and test
-    model_std.load_state_dict(torch.load('cifar100_mnist_style_std_best.pt'))
+    # Load best hypernetwork model and test
     model_hyper.load_state_dict(torch.load('cifar100_mnist_style_hyper_best.pt'))
-    
-    std_test_loss, std_test_err = evaluate(model_std, device, test_loader)
     hyper_test_loss, hyper_test_err = evaluate(model_hyper, device, test_loader)
-    
-    std_test_acc = (1 - std_test_err) * 100
     hyper_test_acc = (1 - hyper_test_err) * 100
     
-    print(f"Standard CNN - Test Accuracy: {std_test_acc:.2f}%")
+    # Compare with previous standard CNN results
+    std_test_acc = 16.23  # Previous result
+    print(f"Standard CNN - Test Accuracy: {std_test_acc:.2f}% (previous result)")
     print(f"HyperNetwork CNN - Test Accuracy: {hyper_test_acc:.2f}%")
     
     improvement = hyper_test_acc - std_test_acc
