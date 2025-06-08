@@ -336,12 +336,12 @@ def main():
     #     print(f"\nResults: Train Err: {100*train_err:.2f}% | Val Err: {100*val_err:.2f}% | "
     #           f"Best Val Err: {100*best_val_err_std:.2f}% | LR: {current_lr:.6f} | Time: {epoch_time:.1f}s")
     
-    # # 2. HyperNetwork CNN
-    # print("\n" + "="*60)
-    # print("Training HyperNetwork CNN...")
-    # model_hyper = HyperCNNCIFAR(f_size=f_size, in_size=in_size, out_size=out_size, z_dim=z_dim).to(device)
-    # optimizer_hyper = optim.Adam(model_hyper.parameters(), lr=lr)
-    # scheduler_hyper = optim.lr_scheduler.ExponentialLR(optimizer_hyper, gamma=0.99)  # Like MNIST
+    # 2. HyperNetwork CNN
+    print("\n" + "="*60)
+    print("Training HyperNetwork CNN...")
+    model_hyper = HyperCNNCIFAR(f_size=f_size, in_size=in_size, out_size=out_size, z_dim=z_dim).to(device)
+    optimizer_hyper = optim.Adam(model_hyper.parameters(), lr=lr)
+    scheduler_hyper = optim.lr_scheduler.ExponentialLR(optimizer_hyper, gamma=0.99)  # Like MNIST
     
     print("\nHyperNetwork CNN parameters:")
     count_parameters(model_hyper)
