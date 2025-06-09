@@ -1,0 +1,150 @@
+{
+  "training_history": [
+    {
+      "timestamp": "2025-06-09T18:17:35.286529",
+      "epoch": 1,
+      "train_error": 0.9439111111111111,
+      "validation_error": 0.9112,
+      "best_validation_error": 0.9112,
+      "learning_rate": 0.0004523497400965494,
+      "epoch_time_seconds": 13.427649974822998,
+      "train_accuracy": 0.056088888888888855,
+      "validation_accuracy": 0.08879999999999999,
+      "best_validation_accuracy": 0.08879999999999999
+    },
+    {
+      "timestamp": "2025-06-09T18:17:42.297450",
+      "epoch": 2,
+      "train_error": 0.8745777777777778,
+      "validation_error": 0.8448,
+      "best_validation_error": 0.8448,
+      "learning_rate": 0.0003275997400965494,
+      "epoch_time_seconds": 7.009713649749756,
+      "train_accuracy": 0.1254222222222222,
+      "validation_accuracy": 0.1552,
+      "best_validation_accuracy": 0.1552
+    },
+    {
+      "timestamp": "2025-06-09T18:17:49.487691",
+      "epoch": 3,
+      "train_error": 0.8231111111111111,
+      "validation_error": 0.798,
+      "best_validation_error": 0.798,
+      "learning_rate": 0.0001734002599034506,
+      "epoch_time_seconds": 7.188810348510742,
+      "train_accuracy": 0.17688888888888887,
+      "validation_accuracy": 0.20199999999999996,
+      "best_validation_accuracy": 0.20199999999999996
+    },
+    {
+      "timestamp": "2025-06-09T18:17:56.385122",
+      "epoch": 4,
+      "train_error": 0.7919111111111111,
+      "validation_error": 0.763,
+      "best_validation_error": 0.763,
+      "learning_rate": 4.8650259903450626e-05,
+      "epoch_time_seconds": 6.896433353424072,
+      "train_accuracy": 0.20808888888888888,
+      "validation_accuracy": 0.237,
+      "best_validation_accuracy": 0.237
+    },
+    {
+      "timestamp": "2025-06-09T18:18:03.160257",
+      "epoch": 5,
+      "train_error": 0.7784888888888889,
+      "validation_error": 0.7504,
+      "best_validation_error": 0.7504,
+      "learning_rate": 1e-06,
+      "epoch_time_seconds": 6.7741382122039795,
+      "train_accuracy": 0.2215111111111111,
+      "validation_accuracy": 0.24960000000000004,
+      "best_validation_accuracy": 0.24960000000000004
+    },
+    {
+      "timestamp": "2025-06-09T18:18:06.176859",
+      "epoch": -1,
+      "train_error": 0.0,
+      "validation_error": 0.0,
+      "best_validation_error": 0.0,
+      "learning_rate": 0.0,
+      "epoch_time_seconds": 0.0,
+      "train_accuracy": 1.0,
+      "validation_accuracy": 1.0,
+      "best_validation_accuracy": 1.0,
+      "final_test_accuracy": 0.26960000000000006
+    }
+  ],
+  "config": {
+    "world_size": 4,
+    "batch_size_per_gpu": 64,
+    "effective_batch_size": 256,
+    "epochs": 5,
+    "learning_rate": 0.0005,
+    "weight_decay": 0.0001,
+    "z_dimension": 8,
+    "filter_size": 3,
+    "in_channels": 32,
+    "out_channels": 64,
+    "strategy": "Stable Training with NCCL fixes",
+    "model_type": "HyperNetwork ALL LAYERS",
+    "dataset": "CIFAR-100"
+  },
+  "start_time": "2025-06-09T18:17:18.170626",
+  "final_results": {
+    "test_accuracy": 0.26960000000000006,
+    "z_signals": {
+      "z_signal_conv1": [
+        0.01031954400241375,
+        -0.03449487313628197,
+        0.0025249153841286898,
+        0.024057358503341675,
+        -0.011388399638235569,
+        0.016859004274010658,
+        0.012462121434509754,
+        -0.0025424251798540354
+      ],
+      "z_signal_conv2": [
+        -0.0015471087535843253,
+        0.005025566089898348,
+        0.005520941689610481,
+        -0.017973896116018295,
+        0.006737716030329466,
+        -0.008065508678555489,
+        0.0012634388403967023,
+        0.006290158722549677
+      ],
+      "z_signal_conv3": [
+        -0.011520524509251118,
+        -0.01587424986064434,
+        -0.01687207818031311,
+        0.010703879408538342,
+        0.001176753779873252,
+        0.015343142673373222,
+        0.0006688182475045323,
+        -0.001236764364875853
+      ],
+      "z_signal_fc1": [
+        0.008734911680221558,
+        0.007479624357074499,
+        0.0013237701496109366,
+        0.005028242245316505,
+        0.044879648834466934,
+        -0.026577765122056007,
+        -0.024619054049253464,
+        0.03685346618294716
+      ],
+      "z_signal_fc2": [
+        -0.11900781095027924,
+        -0.11431483179330826,
+        -0.10649063438177109,
+        0.11235019564628601,
+        0.1104811355471611,
+        -0.10954838246107101,
+        0.10911209136247635,
+        -0.11257711797952652
+      ]
+    },
+    "completion_time": "2025-06-09T18:18:06.177355",
+    "status": "completed"
+  }
+}
