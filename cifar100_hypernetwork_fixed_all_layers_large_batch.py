@@ -324,7 +324,7 @@ def main():
     
     # 数据集加载
     print("Loading CIFAR-100 dataset...")
-    train_dataset = datasets.CIFAR100('data', train=True, download=False, transform=transform_train)
+    train_dataset = datasets.CIFAR100('data', train=True, download=True, transform=transform_train)
     test_dataset = datasets.CIFAR100('data', train=False, transform=transform_test)
     
     train_size = len(train_dataset) - 5000

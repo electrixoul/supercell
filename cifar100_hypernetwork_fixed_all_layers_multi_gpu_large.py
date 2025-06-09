@@ -158,7 +158,7 @@ class HyperCNNCIFAR_AllLayers_Large(nn.Module):
         
         return x
 
-def train_epoch(model, device, train_loader, optimizer, epoch, rank, world_size, log_interval=50):
+def train_epoch(model, device, train_loader, optimizer, epoch, rank, world_size, log_interval=20):
     """分布式训练一个epoch"""
     model.train()
     train_loss = 0
@@ -281,14 +281,14 @@ def train_worker(rank, world_size, epochs):
     torch.manual_seed(42 + rank)
     np.random.seed(42 + rank)
     
-    # 超参数配置 - 放大参数
-    batch_size = 256  # 放大: 128->256
-    test_batch_size = 512  # 放大测试batch
-    lr = 0.001
+    # 超参数配置 - 优化batch策略提升收敛
+    batch_size = 128  # 减少: 384->128 (增加更新频率)
+    test_batch_size = 256  # 对应减少
+    lr = 0.001  # 调整: 0.0015->0.001 (配合较小batch)
     f_size = 5
-    in_size = 64      # 放大: 32->64
-    out_size = 128    # 放大: 64->128
-    z_dim = 16        # 放大: 8->16
+    in_size = 64      # 保持: 64
+    out_size = 128    # 保持: 128
+    z_dim = 12        # 保持: 12
     
     if rank == 0:
         print(f"Large Parameters Multi-GPU Training Configuration:")
@@ -362,9 +362,9 @@ def train_worker(rank, world_size, epochs):
     # DDP包装
     model = DDP(model, device_ids=[rank], output_device=rank, find_unused_parameters=False)
     
-    # 优化器和调度器
-    optimizer = optim.Adam(model.parameters(), lr=lr)
-    scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.995)
+    # 优化器和调度器 - H20优化
+    optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
+    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=1e-6)
     
     # 参数统计（只在主进程）
     if rank == 0:
