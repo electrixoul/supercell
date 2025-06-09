@@ -18,17 +18,50 @@ HyperNetwork通过小维度信号(Z-signal)生成主网络权重，相比传统C
 - **总参数量**: 6,095,564 (HyperNetwork参数占99.99%)
 
 ### 2.2 实验变体
-| 版本 | 主要特性 | 目标 |
-|------|----------|------|
-| 基础版本 | 标准单GPU训练 | 建立基准性能 |
-| 注释版本 | 详细中文注释 | 代码可读性 |
-| 大批次版本 | 自适应批次大小优化 | 训练效率提升 |
-| 多GPU版本 | 分布式数据并行训练 | 性能和效率双重优化 |
+| 版本 | 代码文件 | 运行指令 | 主要特性 | 目标 |
+|------|----------|----------|----------|------|
+| 基础版本 | `cifar100_hypernetwork_fixed_all_layers.py` | `python cifar100_hypernetwork_fixed_all_layers.py` | 标准单GPU训练 | 建立基准性能 |
+| 注释版本 | `cifar100_hypernetwork_fixed_all_layers_annotated.py` | `python cifar100_hypernetwork_fixed_all_layers_annotated.py` | 详细中文注释 | 代码可读性 |
+| 大批次版本 | `cifar100_hypernetwork_fixed_all_layers_large_batch.py` | `python cifar100_hypernetwork_fixed_all_layers_large_batch.py` | 自适应批次大小优化 | 训练效率提升 |
+| 多GPU版本 | `cifar100_hypernetwork_fixed_all_layers_multi_gpu.py` | `torchrun --nproc_per_node=2 cifar100_hypernetwork_fixed_all_layers_multi_gpu.py` | 分布式数据并行训练 | 性能和效率双重优化 |
 
 ### 2.3 实验环境
 - **硬件**: 双NVIDIA H100 80GB HBM3
 - **软件**: PyTorch, CUDA, DistributedDataParallel
 - **数据集**: CIFAR-100 (训练45k, 验证5k, 测试10k)
+
+### 2.4 代码使用说明
+
+#### 环境依赖
+```bash
+pip install torch torchvision numpy
+```
+
+#### 数据准备
+```bash
+# 首次运行会自动下载CIFAR-100数据集到data/目录
+mkdir -p data
+```
+
+#### 运行指令详解
+```bash
+# 基础版本 - 单GPU训练
+python cifar100_hypernetwork_fixed_all_layers.py
+
+# 注释版本 - 带详细注释的单GPU训练
+python cifar100_hypernetwork_fixed_all_layers_annotated.py
+
+# 大批次版本 - 自适应批次大小优化
+python cifar100_hypernetwork_fixed_all_layers_large_batch.py
+
+# 多GPU版本 - 分布式并行训练（需要2个GPU）
+torchrun --nproc_per_node=2 cifar100_hypernetwork_fixed_all_layers_multi_gpu.py
+```
+
+#### 输出文件
+- **模型文件**: `cifar100_all_layers_hyper_best.pt` - 最佳验证性能模型
+- **训练日志**: 控制台输出包含详细的训练进度和Z-signal监控
+- **性能指标**: 实时显示训练/验证错误率、学习率、Z-signal范数
 
 ## 3. 实验结果
 
