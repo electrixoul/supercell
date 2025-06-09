@@ -249,7 +249,7 @@ def main():
     # Hyperparameters - start with smaller values for initial success
     batch_size = 128
     test_batch_size = 256
-    epochs = 10  # More epochs to see improvement
+    epochs = 100  # More epochs to see improvement
     lr = 0.001      # Smaller learning rate for stability
     f_size = 5      
     in_size = 32    
