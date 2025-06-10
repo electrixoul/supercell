@@ -77,12 +77,47 @@ ipython_config.py
 
 # Logs and temp files
 logs/
+training_logs/
 *.log
 *.out
 *.err
 .DS_Store
 
+# Numpy arrays and signals
+*.npy
+*.npz
+z_signals.npy
+
+# CUDA cache
+.nv/
+
+# Training artifacts
+best_model.pt
+*_best.pt
+tensorboard_logs/
+wandb/
+
 # Virtual environments
 venv/
 env/
 ENV/
+.venv/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Git
+.git/
