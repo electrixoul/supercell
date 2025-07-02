@@ -450,7 +450,7 @@ def main():
     """
     # Create experiment instance with population limit
     experiment = GeneticAlgorithmExperimentSelectiveRetention(
-        initial_population_size=10,
+        initial_population_size=20,
         individual_length=100,  # Reduced for faster testing
         value_range=(1, 30),
         generations=10000,  # Reduced for faster testing
