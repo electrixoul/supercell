@@ -108,7 +108,6 @@ class GeneticAlgorithmExperimentWithCrossover:
     def run_one_generation(self):
         current_population_size = len(self.population)
         selected_pairs = self.select_random_pairs(current_population_size, self.C)
-        crossover_point = random.randint(1, self.individual_length - 1)
         
         offspring_to_retain = []
         offspring_fitness_better_count = 0
@@ -122,6 +121,8 @@ class GeneticAlgorithmExperimentWithCrossover:
             f1 = self.calculate_fitness(parent1)
             f2 = self.calculate_fitness(parent2)
             
+            # Generate a unique crossover point for each offspring
+            crossover_point = random.randint(1, self.individual_length - 1)
             offspring = self.crossover(parent1, parent2, crossover_point)
             offspring, mutation_occurred = self.mutate(offspring)
             if mutation_occurred:
