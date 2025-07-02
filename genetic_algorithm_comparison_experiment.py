@@ -49,7 +49,7 @@ class GeneticAlgorithmExperimentWithCrossover:
         return population
     
     def calculate_fitness(self, individual):
-        return np.sum(individual)
+        return np.sum(individual**2)  # L2 norm squared (sum of squares)
     
     def crossover(self, parent1, parent2, crossover_point):
         offspring = np.concatenate([
@@ -228,7 +228,7 @@ class GeneticAlgorithmExperimentNoCrossover:
         return population
     
     def calculate_fitness(self, individual):
-        return np.sum(individual)
+        return np.sum(individual**2)  # L2 norm squared (sum of squares)
     
     def mutate(self, individual):
         mutated_individual = individual.copy()
@@ -464,6 +464,43 @@ def plot_comparison_results(exp_with, exp_without):
     plt.savefig(f"{filename_base}.png", format='png', dpi=300, bbox_inches='tight')
     print(f"Saved comparison plot as: {filename_base}.png")
     
+    # Save raw data as numpy arrays
+    raw_data = {
+        'generations_list': np.array(generations_list),
+        'max_fitness_generations': np.array(max_fitness_generations),
+        'P_values_with_crossover': np.array(exp_with.P_values),
+        'P_values_without_crossover': np.array(exp_without.P_values),
+        'max_fitness_with_crossover': np.array(exp_with.max_fitness_values),
+        'max_fitness_without_crossover': np.array(exp_without.max_fitness_values),
+        'retention_rates_with_crossover': np.array(retention_rates_with),
+        'retention_rates_without_crossover': np.array(retention_rates_without),
+        'offspring_retained_with_crossover': np.array(exp_with.offspring_retained_count),
+        'offspring_generated_with_crossover': np.array(exp_with.offspring_generated_count),
+        'offspring_retained_without_crossover': np.array(exp_without.offspring_retained_count),
+        'offspring_generated_without_crossover': np.array(exp_without.offspring_generated_count),
+        'mutation_count_with_crossover': np.array(exp_with.mutation_count),
+        'mutation_count_without_crossover': np.array(exp_without.mutation_count),
+        'eliminated_count_with_crossover': np.array(exp_with.eliminated_count),
+        'eliminated_count_without_crossover': np.array(exp_without.eliminated_count),
+        'moving_average_with_crossover': np.array(moving_avg_with) if len(exp_with.P_values) >= window_size else np.array([]),
+        'moving_average_without_crossover': np.array(moving_avg_without) if len(exp_without.P_values) >= window_size else np.array([]),
+        'moving_avg_generations': np.array(moving_avg_generations) if len(exp_with.P_values) >= window_size else np.array([]),
+        'experiment_parameters': {
+            'initial_population_size': exp_with.initial_population_size,
+            'individual_length': exp_with.individual_length,
+            'generations': exp_with.generations,
+            'retention_probability': exp_with.retention_probability,
+            'mutation_probability': exp_with.mutation_probability,
+            'population_limit': exp_with.population_limit,
+            'value_range': exp_with.value_range,
+            'C_value': exp_with.C
+        }
+    }
+    
+    # Save raw data as NPZ file
+    np.savez_compressed(f"{filename_base}_raw_data.npz", **raw_data)
+    print(f"Saved raw data as: {filename_base}_raw_data.npz")
+    
     plt.show()
     
     # Print comprehensive comparison statistics
@@ -522,7 +559,7 @@ def main():
         'initial_population_size': 20,
         'individual_length': 100,
         'value_range': (1, 30),
-        'generations': 10000,
+        'generations': 100000,
         'retention_probability': 0.2,
         'mutation_probability': 0.05,
         'population_limit': 1000
