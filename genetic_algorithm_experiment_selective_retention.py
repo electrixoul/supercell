@@ -10,9 +10,10 @@ plt.rcParams['axes.unicode_minus'] = False
 
 class GeneticAlgorithmExperimentSelectiveRetention:
     def __init__(self, initial_population_size=10, individual_length=15, 
-                 value_range=(1, 30), generations=100, retention_probability=0.2):
+                 value_range=(1, 30), generations=100, retention_probability=0.2, 
+                 mutation_probability=0.05, population_limit=1000):
         """
-        Initialize genetic algorithm experiment with selective retention
+        Initialize genetic algorithm experiment with selective retention, mutation, and population limit
         
         Args:
             initial_population_size: Initial population size
@@ -20,12 +21,16 @@ class GeneticAlgorithmExperimentSelectiveRetention:
             value_range: Value range (min, max)
             generations: Number of generations to run
             retention_probability: Probability of retaining offspring with fitness <= parents
+            mutation_probability: Probability of mutation for each offspring
+            population_limit: Maximum population size (individuals beyond this will be eliminated)
         """
         self.initial_population_size = initial_population_size
         self.individual_length = individual_length
         self.value_range = value_range
         self.generations = generations
         self.retention_probability = retention_probability
+        self.mutation_probability = mutation_probability
+        self.population_limit = population_limit
         
         # Calculate C value: number of combinations of selecting 2 individuals from initial population
         self.C = self.initial_population_size * (self.initial_population_size - 1) // 2
@@ -39,6 +44,12 @@ class GeneticAlgorithmExperimentSelectiveRetention:
         # Store offspring retention statistics
         self.offspring_retained_count = []
         self.offspring_generated_count = []
+        
+        # Store mutation statistics
+        self.mutation_count = []
+        
+        # Store elimination statistics
+        self.eliminated_count = []
         
         # Initialize population
         self.population = self.initialize_population()
@@ -80,6 +91,67 @@ class GeneticAlgorithmExperimentSelectiveRetention:
             parent2[crossover_point:]
         ])
         return offspring
+    
+    def mutate(self, individual):
+        """
+        Mutation operation: randomly apply +1 or -1 incremental changes
+        
+        Args:
+            individual: Individual to mutate
+        
+        Returns:
+            mutated_individual: Individual after mutation
+            mutation_occurred: Boolean indicating if mutation actually occurred
+        """
+        mutated_individual = individual.copy()
+        mutation_occurred = False
+        
+        # Apply mutation with given probability
+        if random.random() < self.mutation_probability:
+            # Randomly select a position to mutate
+            mutation_position = random.randint(0, self.individual_length - 1)
+            # Randomly choose +1 or -1 increment (50% probability each)
+            increment = random.choice([1, -1])
+            # Apply increment
+            new_value = mutated_individual[mutation_position] + increment
+            # Ensure value is not less than 1
+            if new_value < 1:
+                new_value = 1
+            mutated_individual[mutation_position] = new_value
+            mutation_occurred = True
+        
+        return mutated_individual, mutation_occurred
+    
+    def eliminate_excess_population(self):
+        """
+        Eliminate individuals with lowest fitness if population exceeds the limit
+        
+        Returns:
+            eliminated_count: Number of individuals eliminated
+        """
+        current_size = len(self.population)
+        if current_size <= self.population_limit:
+            return 0
+        
+        # Calculate fitness for all individuals
+        fitness_scores = [(i, self.calculate_fitness(individual)) 
+                         for i, individual in enumerate(self.population)]
+        
+        # Sort by fitness (ascending order, lowest first)
+        fitness_scores.sort(key=lambda x: x[1])
+        
+        # Determine how many to eliminate
+        excess_count = current_size - self.population_limit
+        
+        # Get indices of individuals to eliminate (lowest fitness)
+        indices_to_eliminate = [fitness_scores[i][0] for i in range(excess_count)]
+        indices_to_eliminate.sort(reverse=True)  # Sort in descending order for safe removal
+        
+        # Remove individuals with lowest fitness
+        for idx in indices_to_eliminate:
+            self.population.pop(idx)
+        
+        return excess_count
     
     def select_random_pairs(self, population_size, num_pairs):
         """
@@ -127,6 +199,7 @@ class GeneticAlgorithmExperimentSelectiveRetention:
         offspring_to_retain = []
         offspring_fitness_better_count = 0
         total_offspring_generated = 0
+        generation_mutations = 0
         
         for parent1_idx, parent2_idx in selected_pairs:
             parent1 = self.population[parent1_idx]
@@ -136,10 +209,15 @@ class GeneticAlgorithmExperimentSelectiveRetention:
             f1 = self.calculate_fitness(parent1)
             f2 = self.calculate_fitness(parent2)
             
-            # Generate offspring
+            # Generate offspring through crossover
             offspring = self.crossover(parent1, parent2, crossover_point)
             
-            # Calculate offspring fitness value
+            # Apply mutation to offspring
+            offspring, mutation_occurred = self.mutate(offspring)
+            if mutation_occurred:
+                generation_mutations += 1
+            
+            # Calculate offspring fitness value after mutation
             f3 = self.calculate_fitness(offspring)
             
             total_offspring_generated += 1
@@ -150,7 +228,7 @@ class GeneticAlgorithmExperimentSelectiveRetention:
                 # Always retain offspring with better fitness than both parents
                 offspring_to_retain.append(offspring)
             else:
-                # Selective retention: 20% probability for offspring with fitness <= parents
+                # Selective retention: probability-based for offspring with fitness <= parents
                 if random.random() < self.retention_probability:
                     offspring_to_retain.append(offspring)
         
@@ -160,11 +238,16 @@ class GeneticAlgorithmExperimentSelectiveRetention:
         # 5. Add retained offspring to population
         self.population.extend(offspring_to_retain)
         
-        # 6. Record retention statistics
+        # 6. Record retention and mutation statistics
         self.offspring_generated_count.append(total_offspring_generated)
         self.offspring_retained_count.append(len(offspring_to_retain))
+        self.mutation_count.append(generation_mutations)
         
-        # 7. Calculate and record maximum fitness value for current generation
+        # 7. Apply population limit and eliminate excess individuals
+        eliminated_count = self.eliminate_excess_population()
+        self.eliminated_count.append(eliminated_count)
+        
+        # 8. Calculate and record maximum fitness value for current generation (after elimination)
         current_fitness_values = [self.calculate_fitness(ind) for ind in self.population]
         max_fitness = max(current_fitness_values)
         self.max_fitness_values.append(max_fitness)
@@ -175,13 +258,15 @@ class GeneticAlgorithmExperimentSelectiveRetention:
         """
         Run complete genetic algorithm experiment with selective retention
         """
-        print(f"Starting genetic algorithm experiment with selective retention...")
+        print(f"Starting genetic algorithm experiment with selective retention, mutation, and population limit...")
         print(f"Initial population size: {self.initial_population_size}")
         print(f"Individual length: {self.individual_length}")
         print(f"Value range: {self.value_range}")
         print(f"Number of generations: {self.generations}")
         print(f"Offspring per generation (C): {self.C}")
         print(f"Retention probability for weaker offspring: {self.retention_probability}")
+        print(f"Mutation probability: {self.mutation_probability}")
+        print(f"Population limit: {self.population_limit}")
         print("-" * 50)
         
         # Record initial population information
@@ -216,8 +301,8 @@ class GeneticAlgorithmExperimentSelectiveRetention:
         # Print retention statistics
         self.print_retention_statistics()
         
-        # Print 10 randomly selected offspring from the final population
-        self.print_random_offspring()
+        # Print 10 top offspring with highest fitness from the final population
+        self.print_top_offspring()
         
         return self.P_values
     
@@ -237,23 +322,27 @@ class GeneticAlgorithmExperimentSelectiveRetention:
         print(f"Min/Max retained per generation: {np.min(self.offspring_retained_count)}/{np.max(self.offspring_retained_count)}")
         print("-" * 50)
     
-    def print_random_offspring(self, num_offspring=10):
+    def print_top_offspring(self, num_offspring=10):
         """
-        Print randomly selected offspring from the current population
+        Print top offspring with highest fitness from the current population
         """
-        print(f"\n=== Random Sample of {num_offspring} Offspring ===")
+        print(f"\n=== Top {num_offspring} Offspring (Highest Fitness) ===")
         
         # Get offspring from the population (exclude the initial 10 individuals)
         if len(self.population) > self.initial_population_size:
             offspring_population = self.population[self.initial_population_size:]
             
-            # Randomly select offspring to display
-            num_to_show = min(num_offspring, len(offspring_population))
-            selected_offspring = random.sample(offspring_population, num_to_show)
+            # Calculate fitness for all offspring and sort by fitness (descending)
+            offspring_with_fitness = [(offspring, self.calculate_fitness(offspring)) 
+                                    for offspring in offspring_population]
+            offspring_with_fitness.sort(key=lambda x: x[1], reverse=True)
             
-            for i, offspring in enumerate(selected_offspring, 1):
-                fitness = self.calculate_fitness(offspring)
-                print(f"Offspring {i:2d}: {offspring.tolist()} | Fitness: {fitness}")
+            # Select top offspring to display
+            num_to_show = min(num_offspring, len(offspring_with_fitness))
+            top_offspring = offspring_with_fitness[:num_to_show]
+            
+            for i, (offspring, fitness) in enumerate(top_offspring, 1):
+                print(f"Top Offspring {i:2d}: {offspring.tolist()} | Fitness: {fitness}")
         else:
             print("No offspring generated yet.")
         print("-" * 50)
@@ -357,15 +446,17 @@ class GeneticAlgorithmExperimentSelectiveRetention:
 
 def main():
     """
-    Main function: run genetic algorithm experiment with selective retention
+    Main function: run genetic algorithm experiment with selective retention, mutation, and population limit
     """
-    # Create experiment instance (reduced parameters for testing)
+    # Create experiment instance with population limit
     experiment = GeneticAlgorithmExperimentSelectiveRetention(
         initial_population_size=10,
         individual_length=100,  # Reduced for faster testing
         value_range=(1, 30),
-        generations=1000,  # Reduced for faster testing
-        retention_probability=0.0002  # 20% probability for weaker offspring
+        generations=10000,  # Reduced for faster testing
+        retention_probability=0.2,  # 20% probability for weaker offspring
+        mutation_probability=0.05,  # 5% mutation probability
+        population_limit=1000  # Maximum population size
     )
     
     # Run experiment
