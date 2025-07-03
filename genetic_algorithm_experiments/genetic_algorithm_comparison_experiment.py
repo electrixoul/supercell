@@ -1,592 +1,595 @@
 # -*- coding: utf-8 -*-
+"""
+Genetic Algorithm Comparison Experiment
+Clean Code Version - Compares GA with and without crossover
+"""
 import numpy as np
 import matplotlib.pyplot as plt
 import random
+import datetime
 from itertools import combinations
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import List, Tuple, Dict, Any
 
-# Set matplotlib font configuration
+# Configure matplotlib
 plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Arial', 'Liberation Sans']
 plt.rcParams['axes.unicode_minus'] = False
 
-class GeneticAlgorithmExperimentWithCrossover:
-    def __init__(self, initial_population_size=10, individual_length=15, 
-                 value_range=(1, 30), generations=100, retention_probability=0.2, 
-                 mutation_probability=0.05, population_limit=1000):
-        """
-        Initialize genetic algorithm experiment WITH crossover (complete genetic algorithm)
-        """
-        self.initial_population_size = initial_population_size
-        self.individual_length = individual_length
-        self.value_range = value_range
-        self.generations = generations
-        self.retention_probability = retention_probability
-        self.mutation_probability = mutation_probability
-        self.population_limit = population_limit
-        
-        # Calculate C value: number of combinations of selecting 2 individuals from initial population
-        self.C = self.initial_population_size * (self.initial_population_size - 1) // 2
-        
-        # Store results
-        self.P_values = []
-        self.max_fitness_values = []
-        self.offspring_retained_count = []
-        self.offspring_generated_count = []
-        self.mutation_count = []
-        self.eliminated_count = []
-        
-        # Initialize population
-        self.population = self.initialize_population()
+
+@dataclass
+class ExperimentConfig:
+    """Configuration for genetic algorithm experiments"""
+    population_size: int = 20
+    individual_length: int = 100
+    value_range: Tuple[int, int] = (1, 30)
+    generations: int = 1000
+    retention_probability: float = 0.2
+    mutation_probability: float = 0.05
+    population_limit: int = 1000
     
-    def initialize_population(self):
-        population = []
-        for _ in range(self.initial_population_size):
-            individual = np.random.randint(
-                self.value_range[0], 
-                self.value_range[1] + 1, 
-                size=self.individual_length
-            )
-            population.append(individual)
-        return population
+    @property
+    def crossover_pairs(self) -> int:
+        """Number of parent pairs for crossover"""
+        return self.population_size * (self.population_size - 1) // 2
+
+
+@dataclass
+class GenerationStats:
+    """Statistics for a single generation"""
+    p_value: float
+    offspring_generated: int
+    offspring_retained: int
+    mutations: int
+    eliminated: int
+    max_fitness: float
+
+
+class Individual:
+    """Represents a single individual in the population"""
     
-    def calculate_fitness(self, individual):
-        return np.sum(individual**2)  # L2 norm squared (sum of squares)
+    def __init__(self, genes: np.ndarray):
+        self.genes = genes
     
-    def crossover(self, parent1, parent2, crossover_point):
-        offspring = np.concatenate([
-            parent1[:crossover_point], 
-            parent2[crossover_point:]
+    @classmethod
+    def random(cls, length: int, value_range: Tuple[int, int]) -> 'Individual':
+        """Create a random individual"""
+        genes = np.random.randint(value_range[0], value_range[1] + 1, size=length)
+        return cls(genes)
+    
+    @property
+    def fitness(self) -> float:
+        """Calculate fitness (sum of squares)"""
+        return np.sum(self.genes ** 2)
+    
+    def copy(self) -> 'Individual':
+        """Create a copy of this individual"""
+        return Individual(self.genes.copy())
+    
+    def mutate(self, probability: float) -> bool:
+        """Mutate this individual. Returns True if mutation occurred."""
+        if random.random() < probability:
+            position = random.randint(0, len(self.genes) - 1)
+            change = random.choice([1, -1])
+            self.genes[position] = max(1, self.genes[position] + change)
+            return True
+        return False
+    
+    def crossover_with(self, other: 'Individual') -> 'Individual':
+        """Create offspring through crossover with another individual"""
+        crossover_point = random.randint(1, len(self.genes) - 1)
+        offspring_genes = np.concatenate([
+            self.genes[:crossover_point], 
+            other.genes[crossover_point:]
         ])
-        return offspring
-    
-    def mutate(self, individual):
-        mutated_individual = individual.copy()
-        mutation_occurred = False
-        
-        if random.random() < self.mutation_probability:
-            mutation_position = random.randint(0, self.individual_length - 1)
-            increment = random.choice([1, -1])
-            new_value = mutated_individual[mutation_position] + increment
-            if new_value < 1:
-                new_value = 1
-            mutated_individual[mutation_position] = new_value
-            mutation_occurred = True
-        
-        return mutated_individual, mutation_occurred
-    
-    def eliminate_excess_population(self):
-        current_size = len(self.population)
-        if current_size <= self.population_limit:
-            return 0
-        
-        fitness_scores = [(i, self.calculate_fitness(individual)) 
-                         for i, individual in enumerate(self.population)]
-        fitness_scores.sort(key=lambda x: x[1])
-        
-        excess_count = current_size - self.population_limit
-        indices_to_eliminate = [fitness_scores[i][0] for i in range(excess_count)]
-        indices_to_eliminate.sort(reverse=True)
-        
-        for idx in indices_to_eliminate:
-            self.population.pop(idx)
-        
-        return excess_count
-    
-    def select_random_pairs(self, population_size, num_pairs):
-        selected_pairs = set()
-        max_possible_pairs = population_size * (population_size - 1) // 2
-        
-        if num_pairs >= max_possible_pairs:
-            return list(combinations(range(population_size), 2))
-        
-        while len(selected_pairs) < num_pairs:
-            idx1, idx2 = random.sample(range(population_size), 2)
-            pair = (min(idx1, idx2), max(idx1, idx2))
-            selected_pairs.add(pair)
-        
-        return list(selected_pairs)
-    
-    def run_one_generation(self):
-        current_population_size = len(self.population)
-        selected_pairs = self.select_random_pairs(current_population_size, self.C)
-        
-        offspring_to_retain = []
-        offspring_fitness_better_count = 0
-        total_offspring_generated = 0
-        generation_mutations = 0
-        
-        for parent1_idx, parent2_idx in selected_pairs:
-            parent1 = self.population[parent1_idx]
-            parent2 = self.population[parent2_idx]
-            
-            f1 = self.calculate_fitness(parent1)
-            f2 = self.calculate_fitness(parent2)
-            
-            # Generate a unique crossover point for each offspring
-            crossover_point = random.randint(1, self.individual_length - 1)
-            offspring = self.crossover(parent1, parent2, crossover_point)
-            offspring, mutation_occurred = self.mutate(offspring)
-            if mutation_occurred:
-                generation_mutations += 1
-            
-            f3 = self.calculate_fitness(offspring)
-            total_offspring_generated += 1
-            
-            if f3 > f1 and f3 > f2:
-                offspring_fitness_better_count += 1
-                offspring_to_retain.append(offspring)
-            else:
-                if random.random() < self.retention_probability:
-                    offspring_to_retain.append(offspring)
-        
-        P = offspring_fitness_better_count / len(selected_pairs) if selected_pairs else 0
-        self.population.extend(offspring_to_retain)
-        
-        self.offspring_generated_count.append(total_offspring_generated)
-        self.offspring_retained_count.append(len(offspring_to_retain))
-        self.mutation_count.append(generation_mutations)
-        
-        eliminated_count = self.eliminate_excess_population()
-        self.eliminated_count.append(eliminated_count)
-        
-        current_fitness_values = [self.calculate_fitness(ind) for ind in self.population]
-        max_fitness = max(current_fitness_values)
-        self.max_fitness_values.append(max_fitness)
-        
-        return P
-    
-    def run_experiment(self):
-        print(f"Starting WITH CROSSOVER experiment...")
-        print(f"Initial population size: {self.initial_population_size}")
-        print(f"Individual length: {self.individual_length}")
-        print(f"Generations: {self.generations}, C: {self.C}")
-        print(f"Retention prob: {self.retention_probability}, Mutation prob: {self.mutation_probability}")
-        print(f"Population limit: {self.population_limit}")
-        print("-" * 50)
-        
-        initial_fitness = [self.calculate_fitness(ind) for ind in self.population]
-        initial_max_fitness = max(initial_fitness)
-        self.max_fitness_values.append(initial_max_fitness)
-        print(f"Initial fitness values: {initial_fitness}")
-        print(f"Initial average: {np.mean(initial_fitness):.2f}, max: {initial_max_fitness}")
-        print("-" * 50)
-        
-        for generation in range(self.generations):
-            P = self.run_one_generation()
-            self.P_values.append(P)
-            
-            if generation % 10 == 0 or generation == self.generations - 1:
-                current_fitness = [self.calculate_fitness(ind) for ind in self.population]
-                retained_count = self.offspring_retained_count[generation]
-                generated_count = self.offspring_generated_count[generation]
-                retention_rate = retained_count / generated_count * 100 if generated_count > 0 else 0
-                
-                print(f"Gen {generation + 1:3d}: P = {P:.4f}, "
-                      f"Pop = {len(self.population):4d}, "
-                      f"Avg = {np.mean(current_fitness):6.2f}, "
-                      f"Retained: {retained_count}/{generated_count} ({retention_rate:.1f}%)")
-        
-        print("WITH CROSSOVER experiment completed!")
-        return self.P_values
+        return Individual(offspring_genes)
 
 
-class GeneticAlgorithmExperimentNoCrossover:
-    def __init__(self, initial_population_size=10, individual_length=15, 
-                 value_range=(1, 30), generations=100, retention_probability=0.2, 
-                 mutation_probability=0.05, population_limit=1000):
-        """
-        Initialize genetic algorithm experiment WITHOUT crossover (mutation-only evolution)
-        """
-        self.initial_population_size = initial_population_size
-        self.individual_length = individual_length
-        self.value_range = value_range
-        self.generations = generations
-        self.retention_probability = retention_probability
-        self.mutation_probability = mutation_probability
-        self.population_limit = population_limit
-        
-        self.C = self.initial_population_size * (self.initial_population_size - 1) // 2
-        
-        # Store results
-        self.P_values = []
-        self.max_fitness_values = []
-        self.offspring_retained_count = []
-        self.offspring_generated_count = []
-        self.mutation_count = []
-        self.eliminated_count = []
-        
-        # Initialize population
-        self.population = self.initialize_population()
+class Population:
+    """Manages a population of individuals"""
     
-    def initialize_population(self):
-        population = []
-        for _ in range(self.initial_population_size):
-            individual = np.random.randint(
-                self.value_range[0], 
-                self.value_range[1] + 1, 
-                size=self.individual_length
-            )
-            population.append(individual)
-        return population
+    def __init__(self, individuals: List[Individual]):
+        self.individuals = individuals
     
-    def calculate_fitness(self, individual):
-        return np.sum(individual**2)  # L2 norm squared (sum of squares)
+    @classmethod
+    def random(cls, config: ExperimentConfig) -> 'Population':
+        """Create a random population"""
+        individuals = [
+            Individual.random(config.individual_length, config.value_range)
+            for _ in range(config.population_size)
+        ]
+        return cls(individuals)
     
-    def mutate(self, individual):
-        mutated_individual = individual.copy()
-        mutation_occurred = False
-        
-        if random.random() < self.mutation_probability:
-            mutation_position = random.randint(0, self.individual_length - 1)
-            increment = random.choice([1, -1])
-            new_value = mutated_individual[mutation_position] + increment
-            if new_value < 1:
-                new_value = 1
-            mutated_individual[mutation_position] = new_value
-            mutation_occurred = True
-        
-        return mutated_individual, mutation_occurred
+    def __len__(self) -> int:
+        return len(self.individuals)
     
-    def eliminate_excess_population(self):
-        current_size = len(self.population)
-        if current_size <= self.population_limit:
+    def __getitem__(self, index: int) -> Individual:
+        return self.individuals[index]
+    
+    def add(self, individual: Individual):
+        """Add an individual to the population"""
+        self.individuals.append(individual)
+    
+    def extend(self, individuals: List[Individual]):
+        """Add multiple individuals to the population"""
+        self.individuals.extend(individuals)
+    
+    @property
+    def fitness_values(self) -> List[float]:
+        """Get fitness values for all individuals"""
+        return [ind.fitness for ind in self.individuals]
+    
+    @property
+    def max_fitness(self) -> float:
+        """Get maximum fitness in population"""
+        return max(self.fitness_values)
+    
+    @property
+    def average_fitness(self) -> float:
+        """Get average fitness in population"""
+        return np.mean(self.fitness_values)
+    
+    def limit_size(self, max_size: int) -> int:
+        """Remove weakest individuals to stay within size limit"""
+        if len(self) <= max_size:
             return 0
         
-        fitness_scores = [(i, self.calculate_fitness(individual)) 
-                         for i, individual in enumerate(self.population)]
-        fitness_scores.sort(key=lambda x: x[1])
+        # Sort by fitness (ascending - weakest first)
+        sorted_individuals = sorted(
+            enumerate(self.individuals), 
+            key=lambda x: x[1].fitness
+        )
         
-        excess_count = current_size - self.population_limit
-        indices_to_eliminate = [fitness_scores[i][0] for i in range(excess_count)]
-        indices_to_eliminate.sort(reverse=True)
-        
-        for idx in indices_to_eliminate:
-            self.population.pop(idx)
-        
-        return excess_count
+        # Remove weakest individuals
+        excess = len(self) - max_size
+        self.individuals = [ind for _, ind in sorted_individuals[excess:]]
+        return excess
     
-    def select_random_individuals(self, population_size, num_individuals):
-        return [random.randint(0, population_size - 1) for _ in range(num_individuals)]
+    def select_random_pairs(self, num_pairs: int) -> List[Tuple[int, int]]:
+        """Select random pairs for crossover"""
+        max_pairs = len(self) * (len(self) - 1) // 2
+        
+        if num_pairs >= max_pairs:
+            return list(combinations(range(len(self)), 2))
+        
+        pairs = set()
+        while len(pairs) < num_pairs:
+            idx1, idx2 = random.sample(range(len(self)), 2)
+            pairs.add((min(idx1, idx2), max(idx1, idx2)))
+        
+        return list(pairs)
     
-    def run_one_generation(self):
-        current_population_size = len(self.population)
-        selected_indices = self.select_random_individuals(current_population_size, self.C)
+    def select_random_individuals(self, count: int) -> List[int]:
+        """Select random individuals"""
+        return [random.randint(0, len(self) - 1) for _ in range(count)]
+
+
+class BaseGeneticAlgorithm(ABC):
+    """Base class for genetic algorithm experiments"""
+    
+    def __init__(self, config: ExperimentConfig):
+        self.config = config
+        self.population = Population.random(config)
+        self.stats_history: List[GenerationStats] = []
+        self.max_fitness_history: List[float] = [self.population.max_fitness]
+    
+    @abstractmethod
+    def create_offspring(self) -> Tuple[List[Individual], int, int, int]:
+        """Create offspring for next generation. Returns (offspring, better_count, mutations, total_offspring)"""
+        pass
+    
+    @abstractmethod
+    def get_experiment_name(self) -> str:
+        """Get the name of this experiment"""
+        pass
+    
+    def should_retain_offspring(self, offspring: Individual, parents_fitness: List[float]) -> bool:
+        """Determine if offspring should be retained"""
+        offspring_fitness = offspring.fitness
+        return self.should_retain_offspring_with_fitness(offspring_fitness, parents_fitness)
+    
+    def should_retain_offspring_with_fitness(self, offspring_fitness: float, parents_fitness: List[float]) -> bool:
+        """Determine if offspring should be retained given pre-calculated fitness"""
+        # Always retain if better than all parents
+        if all(offspring_fitness > pf for pf in parents_fitness):
+            return True
         
-        offspring_to_retain = []
-        offspring_fitness_better_count = 0
-        total_offspring_generated = 0
-        generation_mutations = 0
+        # Otherwise retain with probability
+        return random.random() < self.config.retention_probability
+    
+    def run_generation(self) -> GenerationStats:
+        """Run a single generation"""
+        offspring_list, better_count, mutations, total_offspring = self.create_offspring()
         
-        for parent_idx in selected_indices:
-            parent = self.population[parent_idx]
-            parent_fitness = self.calculate_fitness(parent)
+        # Add surviving offspring to population
+        self.population.extend(offspring_list)
+        
+        # Limit population size
+        eliminated = self.population.limit_size(self.config.population_limit)
+        
+        # Record statistics
+        stats = GenerationStats(
+            p_value=better_count / total_offspring if total_offspring > 0 else 0,
+            offspring_generated=total_offspring,
+            offspring_retained=len(offspring_list),
+            mutations=mutations,
+            eliminated=eliminated,
+            max_fitness=self.population.max_fitness
+        )
+        
+        self.stats_history.append(stats)
+        self.max_fitness_history.append(stats.max_fitness)
+        
+        return stats
+    
+    def run_experiment(self) -> List[float]:
+        """Run the complete experiment"""
+        self._print_experiment_header()
+        
+        for generation in range(self.config.generations):
+            stats = self.run_generation()
             
+            if generation % 10 == 0 or generation == self.config.generations - 1:
+                self._print_generation_stats(generation + 1, stats)
+        
+        print(f"{self.get_experiment_name()} experiment completed!")
+        return [stats.p_value for stats in self.stats_history]
+    
+    def _print_experiment_header(self):
+        """Print experiment header information"""
+        print(f"Starting {self.get_experiment_name()} experiment...")
+        print(f"Population: {self.config.population_size}, "
+              f"Length: {self.config.individual_length}, "
+              f"Generations: {self.config.generations}")
+        print(f"Retention: {self.config.retention_probability}, "
+              f"Mutation: {self.config.mutation_probability}")
+        print("-" * 50)
+        
+        fitness_values = self.population.fitness_values
+        print(f"Initial avg: {np.mean(fitness_values):.2f}, "
+              f"max: {max(fitness_values)}")
+        print("-" * 50)
+    
+    def _print_generation_stats(self, generation: int, stats: GenerationStats):
+        """Print statistics for a generation"""
+        retention_rate = (stats.offspring_retained / stats.offspring_generated * 100 
+                         if stats.offspring_generated > 0 else 0)
+        
+        print(f"Gen {generation:3d}: P = {stats.p_value:.4f}, "
+              f"Pop = {len(self.population):4d}, "
+              f"Avg = {self.population.average_fitness:6.2f}, "
+              f"Retained: {stats.offspring_retained}/{stats.offspring_generated} "
+              f"({retention_rate:.1f}%)")
+
+
+class GeneticAlgorithmWithCrossover(BaseGeneticAlgorithm):
+    """Genetic algorithm with crossover operation"""
+    
+    def get_experiment_name(self) -> str:
+        return "WITH CROSSOVER"
+    
+    def create_offspring(self) -> Tuple[List[Individual], int, int, int]:
+        """Create offspring through crossover and mutation"""
+        pairs = self.population.select_random_pairs(self.config.crossover_pairs)
+        
+        offspring_list = []
+        better_count = 0
+        mutations = 0
+        total_offspring = 0
+        
+        for idx1, idx2 in pairs:
+            parent1, parent2 = self.population[idx1], self.population[idx2]
+            parents_fitness = [parent1.fitness, parent2.fitness]
+            
+            # Create offspring through crossover
+            offspring = parent1.crossover_with(parent2)
+            
+            # Apply mutation
+            if offspring.mutate(self.config.mutation_probability):
+                mutations += 1
+            
+            # Calculate offspring fitness once
+            offspring_fitness = offspring.fitness
+            total_offspring += 1
+            
+            # Count if offspring is better than both parents (for ALL offspring)
+            if offspring_fitness > max(parents_fitness):
+                better_count += 1
+            
+            # Check if offspring should be retained
+            if self.should_retain_offspring_with_fitness(offspring_fitness, parents_fitness):
+                offspring_list.append(offspring)
+        
+        return offspring_list, better_count, mutations, total_offspring
+
+
+class GeneticAlgorithmWithoutCrossover(BaseGeneticAlgorithm):
+    """Genetic algorithm without crossover (mutation-only)"""
+    
+    def get_experiment_name(self) -> str:
+        return "WITHOUT CROSSOVER"
+    
+    def create_offspring(self) -> Tuple[List[Individual], int, int, int]:
+        """Create offspring through mutation only"""
+        selected_indices = self.population.select_random_individuals(
+            self.config.crossover_pairs
+        )
+        
+        offspring_list = []
+        better_count = 0
+        mutations = 0
+        total_offspring = 0
+        
+        for idx in selected_indices:
+            parent = self.population[idx]
+            parent_fitness = parent.fitness
+            
+            # Create offspring through copying and mutation
             offspring = parent.copy()
-            offspring, mutation_occurred = self.mutate(offspring)
-            if mutation_occurred:
-                generation_mutations += 1
             
-            offspring_fitness = self.calculate_fitness(offspring)
-            total_offspring_generated += 1
+            # Apply mutation
+            if offspring.mutate(self.config.mutation_probability):
+                mutations += 1
             
+            # Calculate offspring fitness once
+            offspring_fitness = offspring.fitness
+            total_offspring += 1
+            
+            # Count if offspring is better than parent (for ALL offspring)
             if offspring_fitness > parent_fitness:
-                offspring_fitness_better_count += 1
-                offspring_to_retain.append(offspring)
-            else:
-                if random.random() < self.retention_probability:
-                    offspring_to_retain.append(offspring)
-        
-        P = offspring_fitness_better_count / len(selected_indices) if selected_indices else 0
-        self.population.extend(offspring_to_retain)
-        
-        self.offspring_generated_count.append(total_offspring_generated)
-        self.offspring_retained_count.append(len(offspring_to_retain))
-        self.mutation_count.append(generation_mutations)
-        
-        eliminated_count = self.eliminate_excess_population()
-        self.eliminated_count.append(eliminated_count)
-        
-        current_fitness_values = [self.calculate_fitness(ind) for ind in self.population]
-        max_fitness = max(current_fitness_values)
-        self.max_fitness_values.append(max_fitness)
-        
-        return P
-    
-    def run_experiment(self):
-        print(f"Starting WITHOUT CROSSOVER experiment...")
-        print(f"Initial population size: {self.initial_population_size}")
-        print(f"Individual length: {self.individual_length}")
-        print(f"Generations: {self.generations}, C: {self.C}")
-        print(f"Retention prob: {self.retention_probability}, Mutation prob: {self.mutation_probability}")
-        print(f"Population limit: {self.population_limit}")
-        print("*** NO CROSSOVER - MUTATION-ONLY EVOLUTION ***")
-        print("-" * 50)
-        
-        initial_fitness = [self.calculate_fitness(ind) for ind in self.population]
-        initial_max_fitness = max(initial_fitness)
-        self.max_fitness_values.append(initial_max_fitness)
-        print(f"Initial fitness values: {initial_fitness}")
-        print(f"Initial average: {np.mean(initial_fitness):.2f}, max: {initial_max_fitness}")
-        print("-" * 50)
-        
-        for generation in range(self.generations):
-            P = self.run_one_generation()
-            self.P_values.append(P)
+                better_count += 1
             
-            if generation % 10 == 0 or generation == self.generations - 1:
-                current_fitness = [self.calculate_fitness(ind) for ind in self.population]
-                retained_count = self.offspring_retained_count[generation]
-                generated_count = self.offspring_generated_count[generation]
-                retention_rate = retained_count / generated_count * 100 if generated_count > 0 else 0
-                
-                print(f"Gen {generation + 1:3d}: P = {P:.4f}, "
-                      f"Pop = {len(self.population):4d}, "
-                      f"Avg = {np.mean(current_fitness):6.2f}, "
-                      f"Retained: {retained_count}/{generated_count} ({retention_rate:.1f}%)")
+            # Check if offspring should be retained
+            if self.should_retain_offspring_with_fitness(offspring_fitness, [parent_fitness]):
+                offspring_list.append(offspring)
         
-        print("WITHOUT CROSSOVER experiment completed!")
-        return self.P_values
+        return offspring_list, better_count, mutations, total_offspring
 
 
-def plot_comparison_results(exp_with, exp_without):
-    """
-    Plot comparison results between with and without crossover experiments
-    """
-    plt.figure(figsize=(15, 20))
+class ExperimentVisualizer:
+    """Handles visualization of experiment results"""
     
-    generations_list = list(range(1, len(exp_with.P_values) + 1))
-    max_fitness_generations = list(range(0, len(exp_with.max_fitness_values)))
+    def __init__(self, exp_with: BaseGeneticAlgorithm, exp_without: BaseGeneticAlgorithm):
+        self.exp_with = exp_with
+        self.exp_without = exp_without
     
-    # Plot P value comparison
-    plt.subplot(4, 1, 1)
-    plt.plot(generations_list, exp_with.P_values, linewidth=2, color='red', 
-             marker='o', markersize=3, label='WITH Crossover', alpha=0.8)
-    plt.plot(generations_list, exp_without.P_values, linewidth=2, color='blue', 
-             marker='s', markersize=3, label='WITHOUT Crossover (Mutation-Only)', alpha=0.8)
-    
-    plt.title('P Value Comparison: WITH vs WITHOUT Crossover', fontsize=16, fontweight='bold')
-    plt.xlabel('Generation', fontsize=12)
-    plt.ylabel('P Value (Proportion of Better Offspring)', fontsize=12)
-    plt.grid(True, alpha=0.3)
-    plt.legend(fontsize=12)
-    plt.ylim(0, max(max(exp_with.P_values), max(exp_without.P_values)) * 1.1)
-    
-    # Add average lines
-    mean_P_with = np.mean(exp_with.P_values)
-    mean_P_without = np.mean(exp_without.P_values)
-    plt.axhline(y=mean_P_with, color='red', linestyle='--', alpha=0.5, 
-               label=f'WITH Avg = {mean_P_with:.4f}')
-    plt.axhline(y=mean_P_without, color='blue', linestyle='--', alpha=0.5, 
-               label=f'WITHOUT Avg = {mean_P_without:.4f}')
-    plt.legend(fontsize=10)
-    
-    # Plot maximum fitness comparison
-    plt.subplot(4, 1, 2)
-    plt.plot(max_fitness_generations, exp_with.max_fitness_values, linewidth=2, color='red', 
-             marker='o', markersize=3, label='WITH Crossover', alpha=0.8)
-    plt.plot(max_fitness_generations, exp_without.max_fitness_values, linewidth=2, color='blue', 
-             marker='s', markersize=3, label='WITHOUT Crossover (Mutation-Only)', alpha=0.8)
-    
-    plt.title('Maximum Fitness Evolution Comparison: WITH vs WITHOUT Crossover', fontsize=16, fontweight='bold')
-    plt.xlabel('Generation', fontsize=12)
-    plt.ylabel('Maximum Fitness Value', fontsize=12)
-    plt.grid(True, alpha=0.3)
-    plt.legend(fontsize=12)
-    
-    # Add fitness improvement information
-    with_improvement = exp_with.max_fitness_values[-1] - exp_with.max_fitness_values[0]
-    without_improvement = exp_without.max_fitness_values[-1] - exp_without.max_fitness_values[0]
-    
-    plt.text(0.02, 0.98, f'WITH Crossover Improvement: {with_improvement}', 
-             transform=plt.gca().transAxes, fontsize=11, verticalalignment='top',
-             bbox=dict(boxstyle='round', facecolor='red', alpha=0.2))
-    plt.text(0.02, 0.90, f'WITHOUT Crossover Improvement: {without_improvement}', 
-             transform=plt.gca().transAxes, fontsize=11, verticalalignment='top',
-             bbox=dict(boxstyle='round', facecolor='blue', alpha=0.2))
-    
-    # Plot retention rate comparison
-    plt.subplot(4, 1, 3)
-    retention_rates_with = [retained/generated*100 if generated > 0 else 0 
-                           for retained, generated in zip(exp_with.offspring_retained_count, exp_with.offspring_generated_count)]
-    retention_rates_without = [retained/generated*100 if generated > 0 else 0 
-                              for retained, generated in zip(exp_without.offspring_retained_count, exp_without.offspring_generated_count)]
-    
-    plt.plot(generations_list, retention_rates_with, linewidth=2, color='red', 
-             marker='o', markersize=3, label='WITH Crossover', alpha=0.8)
-    plt.plot(generations_list, retention_rates_without, linewidth=2, color='blue', 
-             marker='s', markersize=3, label='WITHOUT Crossover (Mutation-Only)', alpha=0.8)
-    
-    plt.title('Offspring Retention Rate Comparison: WITH vs WITHOUT Crossover', fontsize=16, fontweight='bold')
-    plt.xlabel('Generation', fontsize=12)
-    plt.ylabel('Retention Rate (%)', fontsize=12)
-    plt.grid(True, alpha=0.3)
-    plt.legend(fontsize=12)
-    plt.ylim(0, 100)
-    
-    # Plot moving average comparison
-    plt.subplot(4, 1, 4)
-    window_size = 10
-    if len(exp_with.P_values) >= window_size:
-        moving_avg_with = np.convolve(exp_with.P_values, np.ones(window_size)/window_size, mode='valid')
-        moving_avg_without = np.convolve(exp_without.P_values, np.ones(window_size)/window_size, mode='valid')
-        moving_avg_generations = generations_list[window_size-1:]
+    def plot_comparison(self):
+        """Create comprehensive comparison plots"""
+        fig, axes = plt.subplots(4, 1, figsize=(15, 20))
         
-        plt.plot(moving_avg_generations, moving_avg_with, linewidth=3, color='red', 
-                label=f'WITH Crossover ({window_size}-Gen Moving Avg)')
-        plt.plot(moving_avg_generations, moving_avg_without, linewidth=3, color='blue', 
-                label=f'WITHOUT Crossover ({window_size}-Gen Moving Avg)')
+        self._plot_p_values(axes[0])
+        self._plot_fitness_evolution(axes[1])
+        self._plot_retention_rates(axes[2])
+        self._plot_moving_averages(axes[3])
+        
+        plt.tight_layout()
+        self._save_plots()
+        self._save_data()
+        plt.show()
+        
+        self._print_statistics()
     
-    # Background lines
-    plt.plot(generations_list, exp_with.P_values, alpha=0.3, color='red')
-    plt.plot(generations_list, exp_without.P_values, alpha=0.3, color='blue')
+    def _plot_p_values(self, ax):
+        """Plot P-value comparison"""
+        generations = range(1, len(self.exp_with.stats_history) + 1)
+        p_values_with = [s.p_value for s in self.exp_with.stats_history]
+        p_values_without = [s.p_value for s in self.exp_without.stats_history]
+        
+        # Calculate mean values
+        mean_with = np.mean(p_values_with)
+        mean_without = np.mean(p_values_without)
+        
+        ax.plot(generations, p_values_with, 'r-o', markersize=3, 
+                label='WITH Crossover', alpha=0.8)
+        ax.plot(generations, p_values_without, 'b-s', markersize=3, 
+                label='WITHOUT Crossover', alpha=0.8)
+        
+        # Add average lines
+        ax.axhline(mean_with, color='red', linestyle='--', alpha=0.5)
+        ax.axhline(mean_without, color='blue', linestyle='--', alpha=0.5)
+        
+        # Add mean value annotations
+        ax.text(0.02, 0.95, f'WITH Crossover Mean: {mean_with:.4f}', 
+                transform=ax.transAxes, fontsize=12, fontweight='bold',
+                bbox=dict(boxstyle="round,pad=0.3", facecolor='red', alpha=0.1),
+                verticalalignment='top')
+        
+        ax.text(0.02, 0.88, f'WITHOUT Crossover Mean: {mean_without:.4f}', 
+                transform=ax.transAxes, fontsize=12, fontweight='bold',
+                bbox=dict(boxstyle="round,pad=0.3", facecolor='blue', alpha=0.1),
+                verticalalignment='top')
+        
+        # Add efficiency ratio annotation
+        ratio = mean_with / mean_without if mean_without > 0 else float('inf')
+        ax.text(0.02, 0.81, f'Efficiency Ratio: {ratio:.1f}x', 
+                transform=ax.transAxes, fontsize=12, fontweight='bold',
+                bbox=dict(boxstyle="round,pad=0.3", facecolor='yellow', alpha=0.2),
+                verticalalignment='top')
+        
+        ax.set_title('P Value Comparison: WITH vs WITHOUT Crossover', 
+                    fontsize=16, fontweight='bold')
+        ax.set_xlabel('Generation')
+        ax.set_ylabel('P Value')
+        ax.grid(True, alpha=0.3)
+        ax.legend()
     
-    plt.title('P Value Moving Average Trend Comparison', fontsize=16, fontweight='bold')
-    plt.xlabel('Generation', fontsize=12)
-    plt.ylabel('P Value (Moving Average)', fontsize=12)
-    plt.grid(True, alpha=0.3)
-    plt.legend(fontsize=12)
-    plt.ylim(0, max(max(exp_with.P_values), max(exp_without.P_values)) * 1.1)
+    def _plot_fitness_evolution(self, ax):
+        """Plot fitness evolution comparison"""
+        generations = range(len(self.exp_with.max_fitness_history))
+        
+        ax.plot(generations, self.exp_with.max_fitness_history, 'r-o', 
+                markersize=3, label='WITH Crossover', alpha=0.8)
+        ax.plot(generations, self.exp_without.max_fitness_history, 'b-s', 
+                markersize=3, label='WITHOUT Crossover', alpha=0.8)
+        
+        # Add final fitness value annotations
+        final_gen = len(self.exp_with.max_fitness_history) - 1
+        final_fitness_with = self.exp_with.max_fitness_history[-1]
+        final_fitness_without = self.exp_without.max_fitness_history[-1]
+        
+        # Annotate final fitness values at the end of curves
+        ax.annotate(f'{final_fitness_with:.0f}', 
+                   xy=(final_gen, final_fitness_with), 
+                   xytext=(10, 10), textcoords='offset points',
+                   ha='left', va='bottom', fontsize=12, fontweight='bold',
+                   bbox=dict(boxstyle="round,pad=0.3", facecolor='red', alpha=0.2),
+                   arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=0'))
+        
+        ax.annotate(f'{final_fitness_without:.0f}', 
+                   xy=(final_gen, final_fitness_without), 
+                   xytext=(10, -15), textcoords='offset points',
+                   ha='left', va='top', fontsize=12, fontweight='bold',
+                   bbox=dict(boxstyle="round,pad=0.3", facecolor='blue', alpha=0.2),
+                   arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=0'))
+        
+        ax.set_title('Maximum Fitness Evolution', fontsize=16, fontweight='bold')
+        ax.set_xlabel('Generation')
+        ax.set_ylabel('Maximum Fitness')
+        ax.grid(True, alpha=0.3)
+        ax.legend()
     
-    plt.tight_layout()
+    def _plot_retention_rates(self, ax):
+        """Plot retention rate comparison"""
+        generations = range(1, len(self.exp_with.stats_history) + 1)
+        
+        rates_with = [s.offspring_retained / s.offspring_generated * 100 
+                     if s.offspring_generated > 0 else 0 
+                     for s in self.exp_with.stats_history]
+        rates_without = [s.offspring_retained / s.offspring_generated * 100 
+                        if s.offspring_generated > 0 else 0 
+                        for s in self.exp_without.stats_history]
+        
+        ax.plot(generations, rates_with, 'r-o', markersize=3, 
+                label='WITH Crossover', alpha=0.8)
+        ax.plot(generations, rates_without, 'b-s', markersize=3, 
+                label='WITHOUT Crossover', alpha=0.8)
+        
+        ax.set_title('Offspring Retention Rate', fontsize=16, fontweight='bold')
+        ax.set_xlabel('Generation')
+        ax.set_ylabel('Retention Rate (%)')
+        ax.set_ylim(0, 100)
+        ax.grid(True, alpha=0.3)
+        ax.legend()
     
-    # Save the figure as vector format (PDF and SVG)
-    import datetime
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename_base = f"genetic_algorithm_comparison_{timestamp}"
+    def _plot_moving_averages(self, ax):
+        """Plot moving average trends"""
+        window_size = 10
+        generations = range(1, len(self.exp_with.stats_history) + 1)
+        p_values_with = [s.p_value for s in self.exp_with.stats_history]
+        p_values_without = [s.p_value for s in self.exp_without.stats_history]
+        
+        if len(p_values_with) >= window_size:
+            moving_avg_with = np.convolve(p_values_with, 
+                                        np.ones(window_size)/window_size, mode='valid')
+            moving_avg_without = np.convolve(p_values_without, 
+                                           np.ones(window_size)/window_size, mode='valid')
+            moving_generations = list(generations)[window_size-1:]
+            
+            ax.plot(moving_generations, moving_avg_with, 'r-', linewidth=3, 
+                   label=f'WITH Crossover ({window_size}-Gen Moving Avg)')
+            ax.plot(moving_generations, moving_avg_without, 'b-', linewidth=3, 
+                   label=f'WITHOUT Crossover ({window_size}-Gen Moving Avg)')
+        
+        # Background lines
+        ax.plot(generations, p_values_with, alpha=0.3, color='red')
+        ax.plot(generations, p_values_without, alpha=0.3, color='blue')
+        
+        ax.set_title('P Value Moving Average Trends', fontsize=16, fontweight='bold')
+        ax.set_xlabel('Generation')
+        ax.set_ylabel('P Value (Moving Average)')
+        ax.grid(True, alpha=0.3)
+        ax.legend()
     
-    # Save as PDF (vector format)
-    plt.savefig(f"{filename_base}.pdf", format='pdf', dpi=300, bbox_inches='tight')
-    print(f"Saved comparison plot as: {filename_base}.pdf")
+    def _save_plots(self):
+        """Save plots in multiple formats"""
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename_base = f"genetic_algorithm_comparison_{timestamp}"
+        
+        for fmt in ['pdf', 'svg', 'png']:
+            plt.savefig(f"{filename_base}.{fmt}", format=fmt, dpi=300, bbox_inches='tight')
+            print(f"Saved plot: {filename_base}.{fmt}")
     
-    # Save as SVG (vector format)
-    plt.savefig(f"{filename_base}.svg", format='svg', dpi=300, bbox_inches='tight')
-    print(f"Saved comparison plot as: {filename_base}.svg")
-    
-    # Save as high-resolution PNG for backup
-    plt.savefig(f"{filename_base}.png", format='png', dpi=300, bbox_inches='tight')
-    print(f"Saved comparison plot as: {filename_base}.png")
-    
-    # Save raw data as numpy arrays
-    raw_data = {
-        'generations_list': np.array(generations_list),
-        'max_fitness_generations': np.array(max_fitness_generations),
-        'P_values_with_crossover': np.array(exp_with.P_values),
-        'P_values_without_crossover': np.array(exp_without.P_values),
-        'max_fitness_with_crossover': np.array(exp_with.max_fitness_values),
-        'max_fitness_without_crossover': np.array(exp_without.max_fitness_values),
-        'retention_rates_with_crossover': np.array(retention_rates_with),
-        'retention_rates_without_crossover': np.array(retention_rates_without),
-        'offspring_retained_with_crossover': np.array(exp_with.offspring_retained_count),
-        'offspring_generated_with_crossover': np.array(exp_with.offspring_generated_count),
-        'offspring_retained_without_crossover': np.array(exp_without.offspring_retained_count),
-        'offspring_generated_without_crossover': np.array(exp_without.offspring_generated_count),
-        'mutation_count_with_crossover': np.array(exp_with.mutation_count),
-        'mutation_count_without_crossover': np.array(exp_without.mutation_count),
-        'eliminated_count_with_crossover': np.array(exp_with.eliminated_count),
-        'eliminated_count_without_crossover': np.array(exp_without.eliminated_count),
-        'moving_average_with_crossover': np.array(moving_avg_with) if len(exp_with.P_values) >= window_size else np.array([]),
-        'moving_average_without_crossover': np.array(moving_avg_without) if len(exp_without.P_values) >= window_size else np.array([]),
-        'moving_avg_generations': np.array(moving_avg_generations) if len(exp_with.P_values) >= window_size else np.array([]),
-        'experiment_parameters': {
-            'initial_population_size': exp_with.initial_population_size,
-            'individual_length': exp_with.individual_length,
-            'generations': exp_with.generations,
-            'retention_probability': exp_with.retention_probability,
-            'mutation_probability': exp_with.mutation_probability,
-            'population_limit': exp_with.population_limit,
-            'value_range': exp_with.value_range,
-            'C_value': exp_with.C
+    def _save_data(self):
+        """Save experiment data"""
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"genetic_algorithm_comparison_{timestamp}_raw_data.npz"
+        
+        data = {
+            'P_values_with_crossover': np.array([s.p_value for s in self.exp_with.stats_history]),
+            'P_values_without_crossover': np.array([s.p_value for s in self.exp_without.stats_history]),
+            'max_fitness_with_crossover': np.array(self.exp_with.max_fitness_history),
+            'max_fitness_without_crossover': np.array(self.exp_without.max_fitness_history),
+            'experiment_parameters': {
+                'population_size': self.exp_with.config.population_size,
+                'individual_length': self.exp_with.config.individual_length,
+                'generations': self.exp_with.config.generations,
+                'retention_probability': self.exp_with.config.retention_probability,
+                'mutation_probability': self.exp_with.config.mutation_probability,
+                'population_limit': self.exp_with.config.population_limit,
+                'value_range': self.exp_with.config.value_range
+            }
         }
-    }
+        
+        np.savez_compressed(filename, **data)
+        print(f"Saved data: {filename}")
     
-    # Save raw data as NPZ file
-    np.savez_compressed(f"{filename_base}_raw_data.npz", **raw_data)
-    print(f"Saved raw data as: {filename_base}_raw_data.npz")
-    
-    plt.show()
-    
-    # Print comprehensive comparison statistics
-    print(f"\n" + "="*80)
-    print("COMPREHENSIVE COMPARISON RESULTS")
-    print("="*80)
-    
-    print(f"\n=== P VALUE STATISTICS ===")
-    print(f"WITH Crossover    - Average: {np.mean(exp_with.P_values):.4f}, "
-          f"Std: {np.std(exp_with.P_values):.4f}, "
-          f"Range: [{np.min(exp_with.P_values):.4f}, {np.max(exp_with.P_values):.4f}]")
-    print(f"WITHOUT Crossover - Average: {np.mean(exp_without.P_values):.4f}, "
-          f"Std: {np.std(exp_without.P_values):.4f}, "
-          f"Range: [{np.min(exp_without.P_values):.4f}, {np.max(exp_without.P_values):.4f}]")
-    
-    p_ratio = np.mean(exp_with.P_values) / np.mean(exp_without.P_values) if np.mean(exp_without.P_values) > 0 else float('inf')
-    print(f"P Value Efficiency Ratio (WITH/WITHOUT): {p_ratio:.1f}x")
-    
-    print(f"\n=== FITNESS IMPROVEMENT STATISTICS ===")
-    with_improvement = exp_with.max_fitness_values[-1] - exp_with.max_fitness_values[0]
-    without_improvement = exp_without.max_fitness_values[-1] - exp_without.max_fitness_values[0]
-    
-    print(f"WITH Crossover    - Initial: {exp_with.max_fitness_values[0]}, "
-          f"Final: {exp_with.max_fitness_values[-1]}, Improvement: {with_improvement}")
-    print(f"WITHOUT Crossover - Initial: {exp_without.max_fitness_values[0]}, "
-          f"Final: {exp_without.max_fitness_values[-1]}, Improvement: {without_improvement}")
-    
-    fitness_ratio = with_improvement / without_improvement if without_improvement > 0 else float('inf')
-    print(f"Fitness Improvement Ratio (WITH/WITHOUT): {fitness_ratio:.1f}x")
-    
-    print(f"\n=== GENERATION STATISTICS ===")
-    zero_p_with = np.sum(np.array(exp_with.P_values) == 0)
-    zero_p_without = np.sum(np.array(exp_without.P_values) == 0)
-    print(f"Generations with P=0 - WITH: {zero_p_with}/{len(exp_with.P_values)}, "
-          f"WITHOUT: {zero_p_without}/{len(exp_without.P_values)}")
-    
-    print(f"\n=== RETENTION STATISTICS ===")
-    total_retained_with = sum(exp_with.offspring_retained_count)
-    total_generated_with = sum(exp_with.offspring_generated_count)
-    retention_rate_with = total_retained_with / total_generated_with * 100
-    
-    total_retained_without = sum(exp_without.offspring_retained_count)
-    total_generated_without = sum(exp_without.offspring_generated_count)
-    retention_rate_without = total_retained_without / total_generated_without * 100
-    
-    print(f"WITH Crossover    - Retention Rate: {retention_rate_with:.2f}% ({total_retained_with}/{total_generated_with})")
-    print(f"WITHOUT Crossover - Retention Rate: {retention_rate_without:.2f}% ({total_retained_without}/{total_generated_without})")
+    def _print_statistics(self):
+        """Print comprehensive comparison statistics"""
+        p_values_with = [s.p_value for s in self.exp_with.stats_history]
+        p_values_without = [s.p_value for s in self.exp_without.stats_history]
+        
+        print(f"\n" + "="*80)
+        print("COMPREHENSIVE COMPARISON RESULTS")
+        print("="*80)
+        
+        print(f"\n=== P VALUE STATISTICS ===")
+        print(f"WITH Crossover    - Average: {np.mean(p_values_with):.4f}")
+        print(f"WITHOUT Crossover - Average: {np.mean(p_values_without):.4f}")
+        
+        ratio = (np.mean(p_values_with) / np.mean(p_values_without) 
+                if np.mean(p_values_without) > 0 else float('inf'))
+        print(f"P Value Efficiency Ratio: {ratio:.1f}x")
+        
+        print(f"\n=== FITNESS IMPROVEMENT ===")
+        with_improvement = (self.exp_with.max_fitness_history[-1] - 
+                          self.exp_with.max_fitness_history[0])
+        without_improvement = (self.exp_without.max_fitness_history[-1] - 
+                             self.exp_without.max_fitness_history[0])
+        
+        print(f"WITH Crossover improvement: {with_improvement}")
+        print(f"WITHOUT Crossover improvement: {without_improvement}")
+        
+        fitness_ratio = (with_improvement / without_improvement 
+                        if without_improvement > 0 else float('inf'))
+        print(f"Fitness Improvement Ratio: {fitness_ratio:.1f}x")
 
 
-def main():
-    """
-    Main function: run both experiments and compare results
-    """
-    # Set same parameters for both experiments
-    params = {
-        'initial_population_size': 20,
-        'individual_length': 100,
-        'value_range': (1, 30),
-        'generations': 100000,
-        'retention_probability': 0.2,
-        'mutation_probability': 0.05,
-        'population_limit': 1000
-    }
+def run_comparison_experiment():
+    """Run the complete comparison experiment"""
+    config = ExperimentConfig()
     
     print("=" * 80)
     print("GENETIC ALGORITHM COMPARISON: WITH vs WITHOUT CROSSOVER")
     print("=" * 80)
     
-    # Run experiment WITH crossover
+    # Run experiments
     print("\n" + "="*50)
     print("EXPERIMENT 1: WITH CROSSOVER")
     print("="*50)
-    exp_with_crossover = GeneticAlgorithmExperimentWithCrossover(**params)
-    exp_with_crossover.run_experiment()
+    exp_with = GeneticAlgorithmWithCrossover(config)
+    exp_with.run_experiment()
     
     print("\n" + "="*50)
     print("EXPERIMENT 2: WITHOUT CROSSOVER")
     print("="*50)
-    exp_without_crossover = GeneticAlgorithmExperimentNoCrossover(**params)
-    exp_without_crossover.run_experiment()
+    exp_without = GeneticAlgorithmWithoutCrossover(config)
+    exp_without.run_experiment()
     
-    # Plot comparison results
-    plot_comparison_results(exp_with_crossover, exp_without_crossover)
+    # Visualize results
+    visualizer = ExperimentVisualizer(exp_with, exp_without)
+    visualizer.plot_comparison()
     
-    return exp_with_crossover, exp_without_crossover
+    return exp_with, exp_without
 
 
 if __name__ == "__main__":
@@ -594,4 +597,4 @@ if __name__ == "__main__":
     np.random.seed()
     random.seed()
     
-    exp_with, exp_without = main()
+    exp_with, exp_without = run_comparison_experiment()
