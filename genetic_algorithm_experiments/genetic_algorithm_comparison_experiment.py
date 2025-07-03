@@ -21,9 +21,9 @@ plt.rcParams['axes.unicode_minus'] = False
 class ExperimentConfig:
     """Configuration for genetic algorithm experiments"""
     population_size: int = 20
-    individual_length: int = 100
+    individual_length: int = 1000
     value_range: Tuple[int, int] = (1, 30)
-    generations: int = 1000
+    generations: int = 100000
     retention_probability: float = 0.2
     mutation_probability: float = 0.05
     population_limit: int = 1000
@@ -505,7 +505,7 @@ class ExperimentVisualizer:
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         filename_base = f"genetic_algorithm_comparison_{timestamp}"
         
-        for fmt in ['pdf', 'svg', 'png']:
+        for fmt in ['pdf', 'png']:
             plt.savefig(f"{filename_base}.{fmt}", format=fmt, dpi=300, bbox_inches='tight')
             print(f"Saved plot: {filename_base}.{fmt}")
     

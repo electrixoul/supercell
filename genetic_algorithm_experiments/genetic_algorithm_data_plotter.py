@@ -191,9 +191,6 @@ def plot_comparison_results_from_data(exp_with, exp_without, data_loader):
     plt.savefig(f"{filename_base}.pdf", format='pdf', dpi=300, bbox_inches='tight')
     print(f"Saved comparison plot as: {filename_base}.pdf")
     
-    # Save as SVG (vector format)
-    plt.savefig(f"{filename_base}.svg", format='svg', dpi=300, bbox_inches='tight')
-    print(f"Saved comparison plot as: {filename_base}.svg")
     
     # Save as high-resolution PNG for backup
     plt.savefig(f"{filename_base}.png", format='png', dpi=300, bbox_inches='tight')
@@ -541,12 +538,10 @@ def create_curve_fitting_plot(x_data, y_with, y_without, with_results, without_r
     filename_base = f"curve_fitting_analysis_{timestamp}"
     
     plt.savefig(f"{filename_base}.pdf", format='pdf', dpi=300, bbox_inches='tight')
-    plt.savefig(f"{filename_base}.svg", format='svg', dpi=300, bbox_inches='tight')
     plt.savefig(f"{filename_base}.png", format='png', dpi=300, bbox_inches='tight')
     
     print(f"\n📈 Curve fitting plots saved:")
     print(f"  {filename_base}.pdf")
-    print(f"  {filename_base}.svg")
     print(f"  {filename_base}.png")
     
     plt.show()
