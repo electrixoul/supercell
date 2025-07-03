@@ -22,6 +22,7 @@ mnist_data/
 *.safetensors # Safe Tensors格式
 *.weights # Darknet权重
 *.engine # TensorRT引擎文件
+*.npz    # NumPy compressed arrays (experiment data)
 saved_models/
 checkpoints/
 models/
