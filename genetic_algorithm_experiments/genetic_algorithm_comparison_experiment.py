@@ -21,9 +21,9 @@ plt.rcParams['axes.unicode_minus'] = False
 class ExperimentConfig:
     """Configuration for genetic algorithm experiments"""
     population_size: int = 20
-    individual_length: int = 1000
+    individual_length: int = 100
     value_range: Tuple[int, int] = (1, 30)
-    generations: int = 100000
+    generations: int = 10000
     retention_probability: float = 0.2
     mutation_probability: float = 0.05
     population_limit: int = 1000
