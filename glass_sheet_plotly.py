@@ -59,46 +59,59 @@ class PlotlyHistogram3DVisualizer:
             x_vals = self.bin_centers[i]
             z_vals = self.histogram_tensor[i]
             
-            # Create ultra-smooth glass sheet with high-resolution anti-aliasing
-            # Increase interpolation points for maximum smoothness
-            n_interp = 200  # Much higher resolution for anti-aliasing
+            # MAXIMUM resolution for ultra-smooth rendering
+            n_interp = 500  # Extreme high resolution - 5x more than before
             x_smooth = np.linspace(x_vals[0], x_vals[-1], n_interp)
             z_smooth = np.interp(x_smooth, x_vals, z_vals)
             
-            # Create surface coordinates
+            # Create surface coordinates with perfect alignment
             X_surface = np.array([x_smooth, x_smooth])
             Y_surface = np.array([[gen, gen] for _ in range(n_interp)]).T
             Z_surface = np.array([np.zeros_like(z_smooth), z_smooth])
             
-            # Add the glass sheet as a smooth surface
+            # Add the glass sheet as an ultra-smooth surface
             fig.add_trace(go.Surface(
                 x=X_surface,
                 y=Y_surface, 
                 z=Z_surface,
-                colorscale=[[0, colors[idx]], [1, colors[idx]]],  # Uniform color
-                opacity=0.7,  # Increased opacity for better visibility without background
+                colorscale=[[0, colors[idx]], [1, colors[idx]]],
+                opacity=0.65,  # Slightly more transparent for better glass effect
                 showscale=False,
                 name=f'Generation {gen}',
                 showlegend=True,
                 hovertemplate='Generation: %{y}<br>Fitness: %{x:.2f}<br>Frequency: %{z}<extra></extra>',
                 lighting=dict(
-                    ambient=0.4,   # Increased ambient light
-                    diffuse=0.7,   # Balanced diffuse light
-                    specular=0.3,  # More specular reflection for glass effect
-                    roughness=0.05, # Smoother surface
-                    fresnel=0.3    # Enhanced glass reflection
+                    ambient=0.5,   # Higher ambient light
+                    diffuse=0.6,   # Balanced diffuse
+                    specular=0.4,  # More specular for glass
+                    roughness=0.02, # Ultra-smooth surface
+                    fresnel=0.4    # Strong glass reflection
                 ),
-                lightposition=dict(x=100, y=200, z=0)
+                lightposition=dict(x=100, y=200, z=0),
+                # Better edge definition with contours disabled
+                contours=dict(
+                    x=dict(show=False),
+                    y=dict(show=False), 
+                    z=dict(show=False)
+                )
             ))
             
-            # Add the histogram outline for clarity (adjusted for better visual balance)
+            # Use the SAME interpolated points for the outline - ZERO gap
             fig.add_trace(go.Scatter3d(
-                x=x_vals,
-                y=[gen] * len(x_vals),
-                z=z_vals,
+                x=x_smooth,  # Use same interpolated x points
+                y=[gen] * len(x_smooth),  # Same y coordinate
+                z=z_smooth,  # Same interpolated z points
                 mode='lines+markers',
-                line=dict(color=colors[idx], width=5),  # Thicker line for better visibility
-                marker=dict(size=1.5, color=colors[idx]),  # Smaller marker for better balance
+                line=dict(
+                    color=colors[idx], 
+                    width=6  # Slightly thicker for better visibility
+                ),
+                marker=dict(
+                    size=1.0,  # Even smaller markers
+                    color=colors[idx],
+                    # Force marker anti-aliasing
+                    line=dict(width=0)
+                ),
                 name=f'Outline Gen {gen}',
                 showlegend=False,
                 hovertemplate='Generation: %{y}<br>Fitness: %{x:.2f}<br>Frequency: %{z}<extra></extra>'
@@ -138,8 +151,8 @@ class PlotlyHistogram3DVisualizer:
                     showbackground=False
                 )
             ),
-            width=1200,
-            height=800,
+            width=1400,
+            height=900,
             font=dict(size=12),
             legend=dict(
                 yanchor="top",
@@ -191,13 +204,55 @@ class PlotlyHistogram3DVisualizer:
                 'scrollZoom': True
             }
             
-            fig.write_html(
-                html_filename, 
+            # Create HTML with custom full-screen CSS
+            html_content = fig.to_html(
                 include_plotlyjs='cdn',
                 config=config,
                 div_id="glass-sheet-plot"
             )
-            print(f"✅ Saved high-quality interactive visualization as: {html_filename}")
+            
+            # Inject minimal CSS for better appearance
+            minimal_css = '''
+<style>
+/* Clean layout with breathing room */
+body {
+    margin: 20px;
+    background-color: #fafafa;
+    font-family: "Open Sans", verdana, arial, sans-serif;
+}
+
+/* Make the plotly div look professional */
+#glass-sheet-plot {
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    background: white;
+    margin: 0 auto;
+}
+
+/* Enhance modebar visibility */
+.modebar {
+    background: rgba(255, 255, 255, 0.9) !important;
+    border-radius: 4px !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+}
+
+/* Better legend styling */
+.legend {
+    background: rgba(255, 255, 255, 0.95) !important;
+    border-radius: 4px !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+}
+</style>
+'''
+            
+            # Insert minimal CSS before closing head tag
+            html_content = html_content.replace('</head>', minimal_css + '</head>')
+            
+            # Write enhanced HTML
+            with open(html_filename, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+                
+            print(f"✅ Saved FULL-SCREEN interactive visualization as: {html_filename}")
         
         # Show the plot with high-quality configuration
         if auto_open:
