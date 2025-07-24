@@ -9,7 +9,7 @@ def main():
     print("Loading data...")
     
     # Initialize the visualizer
-    visualizer = Histogram3DVisualizer('fitness_histograms_cifar10_256h_4000gen_2000pop.npz')
+    visualizer = Histogram3DVisualizer('fitness_histograms_cifar10_256h_2000gen_2000pop.npz')
     
     # Show summary
     visualizer.create_summary_statistics()
