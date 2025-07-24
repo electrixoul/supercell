@@ -188,16 +188,28 @@ class Histogram3DVisualizer:
             
         plt.show()
     
-    def create_glass_sheet_view(self, save_path=None):
+    def create_glass_sheet_view(self, save_path=None, skip_generations=1):
         """
         Create 3D view with translucent glass-like sheets for each generation
+        
+        Args:
+            save_path (str): path to save the figure (optional)
+            skip_generations (int): draw every nth generation (1 = all generations, 2 = every other generation, etc.)
         """
         fig = plt.figure(figsize=(16, 12))
         ax = fig.add_subplot(111, projection='3d')
         
-        colors = plt.cm.coolwarm(np.linspace(0, 1, len(self.generations)))
+        # Select generations to draw based on skip_generations parameter
+        selected_indices = list(range(0, len(self.generations), skip_generations))
+        selected_generations = [self.generations[i] for i in selected_indices]
+        selected_colors = plt.cm.coolwarm(np.linspace(0, 1, len(selected_indices)))
         
-        for i, gen in enumerate(self.generations):
+        print(f"Drawing {len(selected_indices)} generations (every {skip_generations} generation(s))")
+        print(f"Selected generations: {selected_generations}")
+        
+        for idx, i in enumerate(selected_indices):
+            gen = self.generations[i]
+            
             # Use actual bin centers (fitness values) for x-axis
             x_vals = self.bin_centers[i]
             y_val = gen
@@ -220,13 +232,13 @@ class Histogram3DVisualizer:
             verts.append([x_vals[-1], y_val, 0])
             
             # Create the polygon collection with correct format
-            collection = Poly3DCollection([verts], alpha=0.4, facecolor=colors[i], 
-                                        edgecolor=colors[i], linewidth=1.5)
+            collection = Poly3DCollection([verts], alpha=0.4, facecolor=selected_colors[idx], 
+                                        edgecolor=selected_colors[idx], linewidth=1.5)
             ax.add_collection3d(collection)
             
             # Add the histogram outline for clarity
             ax.plot(x_vals, [y_val] * len(x_vals), z_vals, 
-                   color=colors[i], linewidth=3.0, alpha=0.9, 
+                   color=selected_colors[idx], linewidth=3.0, alpha=0.9, 
                    marker='o', markersize=3, zorder=10)
         
         # Customize the plot
