@@ -45,17 +45,23 @@ class PlotlyHistogram3DVisualizer:
         # Create figure
         fig = go.Figure()
         
-        # Color scale for generations
-        colors = px.colors.sample_colorscale("RdYlBu_r", len(selected_indices))
+        # Color scale for generations (matching matplotlib coolwarm)
+        import matplotlib.cm as cm
+        import matplotlib.colors as mcolors
+        
+        # Use matplotlib's coolwarm colormap for consistency
+        coolwarm_colors = cm.coolwarm(np.linspace(0, 1, len(selected_indices)))
+        colors = ['rgba({},{},{},{})'.format(int(r*255), int(g*255), int(b*255), 1.0) 
+                 for r, g, b, a in coolwarm_colors]
         
         for idx, i in enumerate(selected_indices):
             gen = self.generations[i]
             x_vals = self.bin_centers[i]
             z_vals = self.histogram_tensor[i]
             
-            # Create smoother glass sheet using Surface instead of Mesh3d
-            # Create a 2D grid for smooth interpolation
-            n_interp = 50  # Interpolation points for smoother surface
+            # Create ultra-smooth glass sheet with high-resolution anti-aliasing
+            # Increase interpolation points for maximum smoothness
+            n_interp = 200  # Much higher resolution for anti-aliasing
             x_smooth = np.linspace(x_vals[0], x_vals[-1], n_interp)
             z_smooth = np.interp(x_smooth, x_vals, z_vals)
             
@@ -70,29 +76,29 @@ class PlotlyHistogram3DVisualizer:
                 y=Y_surface, 
                 z=Z_surface,
                 colorscale=[[0, colors[idx]], [1, colors[idx]]],  # Uniform color
-                opacity=0.5,
+                opacity=0.7,  # Increased opacity for better visibility without background
                 showscale=False,
                 name=f'Generation {gen}',
                 showlegend=True,
                 hovertemplate='Generation: %{y}<br>Fitness: %{x:.2f}<br>Frequency: %{z}<extra></extra>',
                 lighting=dict(
-                    ambient=0.3,
-                    diffuse=0.8,
-                    specular=0.2,
-                    roughness=0.1,
-                    fresnel=0.2
+                    ambient=0.4,   # Increased ambient light
+                    diffuse=0.7,   # Balanced diffuse light
+                    specular=0.3,  # More specular reflection for glass effect
+                    roughness=0.05, # Smoother surface
+                    fresnel=0.3    # Enhanced glass reflection
                 ),
                 lightposition=dict(x=100, y=200, z=0)
             ))
             
-            # Add the histogram outline for clarity (thinner line)
+            # Add the histogram outline for clarity (adjusted for better visual balance)
             fig.add_trace(go.Scatter3d(
                 x=x_vals,
                 y=[gen] * len(x_vals),
                 z=z_vals,
                 mode='lines+markers',
-                line=dict(color=colors[idx], width=4),
-                marker=dict(size=3, color=colors[idx]),
+                line=dict(color=colors[idx], width=5),  # Thicker line for better visibility
+                marker=dict(size=1.5, color=colors[idx]),  # Smaller marker for better balance
                 name=f'Outline Gen {gen}',
                 showlegend=False,
                 hovertemplate='Generation: %{y}<br>Fitness: %{x:.2f}<br>Frequency: %{z}<extra></extra>'
@@ -115,7 +121,22 @@ class PlotlyHistogram3DVisualizer:
                     center=dict(x=0, y=0, z=0)
                 ),
                 aspectmode='cube',  # Better proportions
-                bgcolor='rgba(240, 240, 240, 0.1)'
+                bgcolor='rgba(255, 255, 255, 0)',  # Transparent background - no blue walls
+                xaxis=dict(
+                    backgroundcolor='rgba(255, 255, 255, 0)',  # Remove axis background
+                    gridcolor='rgba(150, 150, 150, 0.3)',      # Light grid lines
+                    showbackground=False                        # Remove background plane
+                ),
+                yaxis=dict(
+                    backgroundcolor='rgba(255, 255, 255, 0)',
+                    gridcolor='rgba(150, 150, 150, 0.3)',
+                    showbackground=False
+                ),
+                zaxis=dict(
+                    backgroundcolor='rgba(255, 255, 255, 0)',
+                    gridcolor='rgba(150, 150, 150, 0.3)',
+                    showbackground=False
+                )
             ),
             width=1200,
             height=800,
@@ -131,16 +152,69 @@ class PlotlyHistogram3DVisualizer:
             )
         )
         
-        # Save as HTML if requested
+        # Configure high-quality rendering and anti-aliasing
+        fig.update_layout(
+            # Enhanced rendering settings for maximum quality
+            autosize=True,
+            # High DPI display support
+            template='plotly_white'
+        )
+        
+        # Update scene with high-quality settings
+        fig.update_scenes(
+            # Enhanced camera projection for anti-aliasing
+            camera_projection_type='perspective',
+            # Better axis rendering
+            xaxis_showspikes=False,
+            yaxis_showspikes=False,
+            zaxis_showspikes=False
+        )
+        
+        # Save as HTML with high-quality settings
         if save_html:
             html_filename = 'interactive_glass_sheets.html'
-            fig.write_html(html_filename, include_plotlyjs='cdn')
-            print(f"✅ Saved interactive visualization as: {html_filename}")
+            # High-quality HTML export with anti-aliasing
+            config = {
+                'displayModeBar': True,
+                'displaylogo': False,
+                'modeBarButtonsToAdd': ['pan3d', 'orbitRotation', 'tableRotation', 'resetCameraDefault3d'],
+                'toImageButtonOptions': {
+                    'format': 'png',
+                    'filename': 'glass_sheet_visualization',
+                    'height': 1200,
+                    'width': 1600,
+                    'scale': 2  # High DPI for crisp export
+                },
+                # WebGL anti-aliasing
+                'plotGlPixelRatio': 2,  # Higher pixel ratio for better quality
+                'editable': False,
+                'scrollZoom': True
+            }
+            
+            fig.write_html(
+                html_filename, 
+                include_plotlyjs='cdn',
+                config=config,
+                div_id="glass-sheet-plot"
+            )
+            print(f"✅ Saved high-quality interactive visualization as: {html_filename}")
         
-        # Show the plot
+        # Show the plot with high-quality configuration
         if auto_open:
-            fig.show()
-            print("🚀 Interactive visualization opened in browser!")
+            # Configure for maximum quality display
+            config = {
+                'displayModeBar': True,
+                'plotGlPixelRatio': 2,  # High DPI rendering
+                'toImageButtonOptions': {
+                    'format': 'png',
+                    'filename': 'glass_sheet_visualization',
+                    'height': 1200,
+                    'width': 1600,
+                    'scale': 2
+                }
+            }
+            fig.show(config=config)
+            print("🚀 High-quality interactive visualization opened in browser!")
         
         return fig
     
@@ -260,31 +334,44 @@ def main():
     """
     Main function for interactive glass sheet visualization
     """
-    print("=== Interactive 3D Glass Sheet Visualization (Plotly) ===")
-    print("Loading data...")
-    
-    # Initialize visualizer
-    visualizer = PlotlyHistogram3DVisualizer('fitness_histograms_cifar10_256h_2000gen_2000pop.npz')
-    
-    # Configuration
-    skip_generations = 50  # 📝 Modify this to change skip pattern
-    
-    print(f"\n=== Creating Interactive Glass Sheet View ===")
-    print("⚡ Using Plotly for smooth 3D interaction on macOS")
-    
-    # Create interactive visualization
-    fig = visualizer.create_interactive_glass_sheets(
-        skip_generations=skip_generations,
-        save_html=True,
-        auto_open=True
-    )
-    
-    print("\n✨ Interactive features available:")
-    print("🖱️  Mouse: Rotate, zoom, pan")
-    print("🔍 Hover: View detailed data points")
-    print("👁️  Legend: Click to show/hide generations")
-    print("📱 Responsive: Works on all devices")
-    print("🌐 Shareable: HTML file can be shared with others")
+    try:
+        print("=== Interactive 3D Glass Sheet Visualization (Plotly) ===")
+        print("Loading data...")
+        
+        # Initialize visualizer
+        visualizer = PlotlyHistogram3DVisualizer('fitness_histograms_Navix_Empty_Random_6x6_v0_20gen_3000pop.npz')
+        
+        # Configuration
+        skip_generations = 2  # 📝 Modify this to change skip pattern
+        
+        print(f"\n=== Creating Interactive Glass Sheet View ===")
+        print("⚡ Using Plotly for smooth 3D interaction on macOS")
+        
+        # Create interactive visualization
+        fig = visualizer.create_interactive_glass_sheets(
+            skip_generations=skip_generations,
+            save_html=True,
+            auto_open=True
+        )
+        
+        print("\n✨ Interactive features available:")
+        print("🖱️  Mouse: Rotate, zoom, pan")
+        print("🔍 Hover: View detailed data points")
+        print("👁️  Legend: Click to show/hide generations")
+        print("📱 Responsive: Works on all devices")
+        print("🌐 Shareable: HTML file can be shared with others")
+        
+        # Clean shutdown to avoid command line errors
+        print("\n🎯 Program completed successfully!")
+        
+    except KeyboardInterrupt:
+        print("\n⚠️  Program interrupted by user")
+    except Exception as e:
+        print(f"\n❌ Error: {e}")
+    finally:
+        # Ensure clean exit
+        import sys
+        sys.exit(0)
 
 
 if __name__ == "__main__":
