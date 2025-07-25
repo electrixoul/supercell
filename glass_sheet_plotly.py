@@ -394,10 +394,10 @@ def main():
         print("Loading data...")
         
         # Initialize visualizer
-        visualizer = PlotlyHistogram3DVisualizer('fitness_histograms_Navix_Empty_Random_6x6_v0_20gen_3000pop.npz')
+        visualizer = PlotlyHistogram3DVisualizer('fitness_histograms_cifar100_256h_1000gen_2000pop.npz')
         
         # Configuration
-        skip_generations = 2  # 📝 Modify this to change skip pattern
+        skip_generations = 40  # 📝 Modify this to change skip pattern
         
         print(f"\n=== Creating Interactive Glass Sheet View ===")
         print("⚡ Using Plotly for smooth 3D interaction on macOS")
