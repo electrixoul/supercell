@@ -9,16 +9,14 @@ def main():
     print("Loading data...")
     
     # Initialize the visualizer
-    visualizer = Histogram3DVisualizer('fitness_histograms_cifar100_256h_1000gen_2000pop.npz')
-    
+    # visualizer, skip_generations= Histogram3DVisualizer('fitness_histograms_Navix_Empty_Random_6x6_v0_40gen_3000pop.npz'), 1
+    # visualizer, skip_generations = Histogram3DVisualizer('fitness_histograms_cifar100_256h_1000gen_2000pop.npz'), 50
+    visualizer, skip_generations = Histogram3DVisualizer('fitness_histograms_cifar10_256h_4000gen_2000pop.npz'), 50
+
     # Show summary
     visualizer.create_summary_statistics()
     
     print("\n=== Creating Glass Sheet View ===")
-    
-    # Skip generations parameter - change this value to control how many generations to skip
-    # 1 = draw all generations, 2 = draw every other generation, 3 = draw every 3rd generation, etc.
-    skip_generations = 50  # 📝 Modify this value to change skip pattern
     
     print(f"Generating 3D glass sheet visualization (every {skip_generations} generation(s))...")
     

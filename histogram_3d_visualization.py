@@ -233,13 +233,13 @@ class Histogram3DVisualizer:
             
             # Create the polygon collection with correct format
             collection = Poly3DCollection([verts], alpha=0.4, facecolor=selected_colors[idx], 
-                                        edgecolor=selected_colors[idx], linewidth=1.5)
+                                        edgecolor=selected_colors[idx], linewidth=1.)
             ax.add_collection3d(collection)
             
             # Add the histogram outline for clarity
             ax.plot(x_vals, [y_val] * len(x_vals), z_vals, 
-                   color=selected_colors[idx], linewidth=3.0, alpha=0.9, 
-                   marker='o', markersize=3, zorder=10)
+                   color=selected_colors[idx], linewidth=1.0, alpha=0.9, 
+                   marker='o', markersize=0.1, zorder=10)
         
         # Customize the plot
         ax.set_xlabel('Fitness Value', fontsize=12, fontweight='bold')
