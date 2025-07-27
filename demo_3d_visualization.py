@@ -1,17 +1,33 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import argparse
 from histogram_3d_visualization import Histogram3DVisualizer
 
 def main():
     """
     Automatic Glass Sheet 3D visualization - no user interaction required
     """
+    # 解析命令行参数
+    parser = argparse.ArgumentParser(description='3D Glass Sheet Histogram Visualization')
+    parser.add_argument('--mirror-view', action='store_true', 
+                       help='使用镜像视角 (azimuth=215) 而不是默认侧视角 (azimuth=35)')
+    args = parser.parse_args()
+    
+    # 根据命令行参数设置视角
+    azim_angle = 125 if args.mirror_view else 35
+    view_description = "镜像视角" if args.mirror_view else "默认侧视角"
+    
     print("=== 3D Glass Sheet Histogram Visualization ===")
+    print(f"视角设置: {view_description} (azimuth={azim_angle})")
     print("Loading data...")
     
     # Initialize the visualizer
-    visualizer, skip_generations= Histogram3DVisualizer('fitness_histograms_Navix_Empty_Random_6x6_v0_40gen_3000pop.npz'), 1
-    # visualizer, skip_generations = Histogram3DVisualizer('fitness_histograms_cifar100_256h_1000gen_2000pop.npz'), 50
+    # visualizer, skip_generations= Histogram3DVisualizer('fitness_histograms_Navix_Empty_Random_6x6_v0_40gen_3000pop.npz'), 1
+    # visualizer, skip_generations= Histogram3DVisualizer('fitness_histograms_Navix_Empty_Random_6x6_v0_20gen_3000pop.npz'), 1
+    # visualizer, skip_generations= Histogram3DVisualizer('fitness_histograms_Navix_Dynamic_Obstacles_16x16_v0_40gen_200pop.npz'), 1
+    # visualizer, skip_generations = Histogram3DVisualizer('fitness_histograms_cifar100_256h_1000gen_2000pop.npz'), 20
+    # visualizer, skip_generations = Histogram3DVisualizer('fitness_histograms_cifar100_256h_1000gen_2000pop_sigma01.npz'), 20
+    visualizer, skip_generations = Histogram3DVisualizer('fitness_histograms_cifar100_256h_1000gen_2000pop_sigma015.npz'), 20
     # visualizer, skip_generations = Histogram3DVisualizer('fitness_histograms_cifar10_256h_4000gen_2000pop.npz'), 50
 
     # Show summary
@@ -21,8 +37,10 @@ def main():
     
     print(f"Generating 3D glass sheet visualization (every {skip_generations} generation(s))...")
     
-    # Automatically create and save the glass sheet view with skip parameter
-    visualizer.create_glass_sheet_view(save_path='glass_sheet_visualization.png', skip_generations=skip_generations)
+    # Automatically create and save the glass sheet view with skip parameter and custom azimuth
+    visualizer.create_glass_sheet_view(save_path='glass_sheet_visualization.png', 
+                                     skip_generations=skip_generations, 
+                                     azim=azim_angle)
     
     print("✅ Glass sheet visualization completed!")
     print("📁 Saved as: glass_sheet_visualization.png")
@@ -73,8 +91,6 @@ def create_max_fitness_plot(visualizer):
     initial_max = max_vals[0]
     final_max = max_vals[-1]
     improvement = final_max - initial_max
-    
-
     
     # 添加改进信息文本框
     textstr = f'Fitness Improvement: {improvement:.2f}\nTotal Generations: {len(generations)}\nRange: [{min(max_vals):.2f}, {max(max_vals):.2f}]'

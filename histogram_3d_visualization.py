@@ -188,13 +188,14 @@ class Histogram3DVisualizer:
             
         plt.show()
     
-    def create_glass_sheet_view(self, save_path=None, skip_generations=1):
+    def create_glass_sheet_view(self, save_path=None, skip_generations=1, azim=35):
         """
         Create 3D view with translucent glass-like sheets for each generation
         
         Args:
             save_path (str): path to save the figure (optional)
             skip_generations (int): draw every nth generation (1 = all generations, 2 = every other generation, etc.)
+            azim (float): azimuth angle for 3D view (default: 35, mirror view: 215)
         """
         fig = plt.figure(figsize=(16, 12))
         ax = fig.add_subplot(111, projection='3d')
@@ -249,7 +250,7 @@ class Histogram3DVisualizer:
                     fontsize=14, fontweight='bold', pad=20)
         
         # Set viewing angle for best glass sheet effect
-        ax.view_init(elev=20, azim=35)
+        ax.view_init(elev=20, azim=azim)
         ax.grid(True, alpha=0.2)
         
         # Set axis limits to better show the glass sheets
